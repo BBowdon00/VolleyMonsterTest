@@ -1,23 +1,31 @@
-// Task 1.2 — full implementation pending Supabase (Task 0.2)
+import Hero from '@/components/Hero'
+import UpcomingTournamentsGrid from '@/components/UpcomingTournamentsGrid'
+import ValuePropsSection from '@/components/ValuePropsSection'
+
 export default function HomePage() {
   return (
-    <div className="mx-auto max-w-6xl px-4 py-16 text-center">
-      <div className="mb-2 text-sm font-semibold uppercase tracking-widest text-teal-500">
-        Volley Ball Tournaments
-      </div>
-      <h1 className="text-5xl font-black text-gray-900 sm:text-6xl">
-        <span className="text-teal-500">Volley</span>
-        <span className="text-flame-500">Monster</span>
-      </h1>
-      <p className="mx-auto mt-4 max-w-xl text-xl text-gray-600">
-        We offer outdoor tournaments All Summer Long!
-      </p>
-      <a
-        href="/tournaments"
-        className="mt-8 inline-block rounded-lg bg-teal-400 px-8 py-3 font-semibold text-white shadow hover:bg-teal-500 transition-colors"
-      >
-        View Tournaments
-      </a>
-    </div>
+    <>
+      <Hero />
+
+      <ValuePropsSection />
+
+      <section id="upcoming-tournaments" className="py-16">
+        <div className="mx-auto max-w-6xl px-4">
+          <h2 className="mb-8 text-2xl font-bold text-gray-900 sm:text-3xl">
+            Upcoming Tournaments
+          </h2>
+          <UpcomingTournamentsGrid limit={3} />
+
+          <div className="mt-10 text-center">
+            <a
+              href="/tournaments"
+              className="inline-block rounded-lg border border-teal-400 px-6 py-2.5 text-sm font-semibold text-teal-600 transition-colors hover:bg-teal-50"
+            >
+              View All Tournaments
+            </a>
+          </div>
+        </div>
+      </section>
+    </>
   )
 }

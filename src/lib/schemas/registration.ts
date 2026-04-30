@@ -11,11 +11,7 @@ function normalizePhone(raw: string): string {
 
 export const captainSchema = z.object({
   name: z.string().trim().min(1, 'Name is required'),
-  email: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .email('Enter a valid email address'),
+  email: z.string().trim().toLowerCase().email('Enter a valid email address'),
   phone: z
     .string()
     .trim()
@@ -26,11 +22,8 @@ export const captainSchema = z.object({
 
 export type Captain = z.infer<typeof captainSchema>
 
-export const shirtSizeEnum = z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'])
-
 export const playerSchema = z.object({
   name: z.string().trim().min(1, 'Player name is required'),
-  shirtSize: shirtSizeEnum.optional(),
 })
 
 export type Player = z.infer<typeof playerSchema>
@@ -49,13 +42,8 @@ export const orderSubmitSchema = z
   .object({
     captain: captainSchema,
     // 1–2 days for current season; schema is intentionally permissive on count
-    dayEntries: z
-      .array(dayEntrySchema)
-      .min(1, 'Select at least one day')
-      .max(10),
-    agreedToRules: z.literal(true, {
-      errorMap: () => ({ message: 'You must agree to the tournament rules' }),
-    }),
+    dayEntries: z.array(dayEntrySchema).min(1, 'Select at least one day').max(10),
+    agreedToRules: z.literal(true, 'You must agree to the tournament rules'),
   })
   .refine(
     (data) => {

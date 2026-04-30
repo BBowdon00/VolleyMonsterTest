@@ -1,5 +1,6 @@
-@import "tailwindcss";
-@import "@tailwindcss/forms";
+@import 'tailwindcss';
+@plugin "@tailwindcss/forms";
+@plugin "@tailwindcss/typography";
 
 @theme {
   /* Brand palette */
@@ -7,7 +8,7 @@
   --color-teal-100: #d9f1f4;
   --color-teal-200: #b3e4ea;
   --color-teal-300: #7ecfdb;
-  --color-teal-400: #7ebec5;  /* existing site accent */
+  --color-teal-400: #7ebec5; /* existing site accent */
   --color-teal-500: #4fa8b3;
   --color-teal-600: #3a8a96;
   --color-teal-700: #2e707a;

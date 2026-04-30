@@ -144,11 +144,15 @@ create table public.divisions (
   ) stored,
   fee_cents          integer not null check (fee_cents >= 0),
   max_teams          integer check (max_teams is null or max_teams > 0),  -- null = uncapped
-  format             team_format not null default 'triples',
-  -- Roster bounds default to 2 (doubles minimum) through 3 (triples).
-  -- Override per-division for quads/sixes.
-  min_roster         integer not null default 2 check (min_roster > 0),
-  max_roster         integer not null default 3 check (max_roster >= min_roster),
+  format             team_format not null default 'doubles',
+  team_size          integer generated always as (
+    case format
+      when 'doubles' then 2
+      when 'triples' then 3
+      when 'quads'   then 4
+      when 'sixes'   then 6
+    end
+  ) stored,
   sort_order         integer not null default 0,
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now(),
@@ -542,9 +546,9 @@ values
 -- 9.2 Tournament days for the Season Opener (the only fully-known event) -
 
 insert into public.tournament_days (tournament_id, day_date, label, sort_order)
-select id, '2026-05-02', 'Saturday — Single-Gender + Juniors', 0 from public.tournaments where slug = 'season-opener-2026'
+select id, '2026-05-02', 'M/W Doubles',  0 from public.tournaments where slug = 'season-opener-2026'
 union all
-select id, '2026-05-03', 'Sunday — Coed',                      1 from public.tournaments where slug = 'season-opener-2026';
+select id, '2026-05-03', 'Coed Doubles', 1 from public.tournaments where slug = 'season-opener-2026';
 
 -- 9.3 Divisions for Season Opener Saturday (single-gender + juniors) ------
 -- All divisions are uncapped (max_teams = null) and triples format pending
@@ -580,3 +584,76 @@ select id, 'Open', 'coed', 11000, 'triples', 0 from sun
 union all select id, 'AA',   'coed',  8000, 'triples', 1 from sun
 union all select id, 'A',    'coed',  8000, 'triples', 2 from sun
 union all select id, 'BB/B', 'coed',  8000, 'triples', 3 from sun;
+
+-- =========================================================================
+-- 10. register_order — transactional order creation (called by serverless fn)
+-- =========================================================================
+create or replace function public.register_order(
+  p_captain_email     text,
+  p_captain_name      text,
+  p_captain_phone     text,
+  p_captain_city      text,
+  p_total_cents       integer,
+  p_teams             jsonb   -- array of {division_id, name, city, players: [{name, shirt_size, jersey_number, sort_order}]}
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_order_id  uuid;
+  v_team      jsonb;
+  v_team_id   uuid;
+  v_player    jsonb;
+  v_result    jsonb := '[]'::jsonb;
+begin
+  -- Create order
+  insert into public.registration_orders (captain_email, total_cents, status)
+  values (lower(trim(p_captain_email)), p_total_cents, 'pending')
+  returning id into v_order_id;
+
+  -- For each team entry
+  for v_team in select * from jsonb_array_elements(p_teams)
+  loop
+    -- Insert team
+    insert into public.teams (division_id, name, city, captain_name, captain_email, captain_phone, status)
+    values (
+      (v_team->>'division_id')::uuid,
+      v_team->>'name',
+      nullif(trim(p_captain_city), ''),
+      p_captain_name,
+      lower(trim(p_captain_email)),
+      p_captain_phone,
+      'pending_payment'
+    )
+    returning id into v_team_id;
+
+    -- Insert players
+    for v_player in select * from jsonb_array_elements(v_team->'players')
+    loop
+      insert into public.players (team_id, name, shirt_size, jersey_number, sort_order)
+      values (
+        v_team_id,
+        v_player->>'name',
+        nullif(v_player->>'shirt_size', ''),
+        nullif(v_player->>'jersey_number', ''),
+        coalesce((v_player->>'sort_order')::integer, 0)
+      );
+    end loop;
+
+    -- Insert registration (join between order and team)
+    insert into public.registrations (order_id, team_id, amount_cents)
+    values (
+      v_order_id,
+      v_team_id,
+      (v_team->>'fee_cents')::integer
+    );
+
+    v_result := v_result || jsonb_build_array(
+      jsonb_build_object('team_id', v_team_id, 'division_id', v_team->>'division_id')
+    );
+  end loop;
+
+  return jsonb_build_object('order_id', v_order_id, 'teams', v_result);
+end;
+$$;

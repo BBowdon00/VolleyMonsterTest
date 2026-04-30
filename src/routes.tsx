@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
 import RootLayout from './components/RootLayout'
@@ -12,9 +13,14 @@ const ManageTeamPage = lazy(() => import('./pages/ManageTeamPage'))
 const AboutPage = lazy(() => import('./pages/AboutPage'))
 const RulesPage = lazy(() => import('./pages/RulesPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
+const DevPingPage = lazy(() => import('./pages/DevPingPage'))
 
 const withSuspense = (element: React.ReactNode) => (
-  <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-teal-400">Loading…</div>}>
+  <Suspense
+    fallback={
+      <div className="flex min-h-screen items-center justify-center text-teal-400">Loading…</div>
+    }
+  >
     {element}
   </Suspense>
 )
@@ -33,6 +39,7 @@ export const router = createBrowserRouter([
       { path: 'manage/:token', element: withSuspense(<ManageTeamPage />) },
       { path: 'about', element: withSuspense(<AboutPage />) },
       { path: 'rules', element: withSuspense(<RulesPage />) },
+      { path: 'dev/ping', element: withSuspense(<DevPingPage />) },
       { path: '*', element: withSuspense(<NotFoundPage />) },
     ],
   },
