@@ -1,0 +1,42 @@
+@import "tailwindcss";
+@import "@tailwindcss/forms";
+
+@theme {
+  /* Brand palette */
+  --color-teal-50: #f0f9fa;
+  --color-teal-100: #d9f1f4;
+  --color-teal-200: #b3e4ea;
+  --color-teal-300: #7ecfdb;
+  --color-teal-400: #7ebec5;  /* existing site accent */
+  --color-teal-500: #4fa8b3;
+  --color-teal-600: #3a8a96;
+  --color-teal-700: #2e707a;
+  --color-teal-800: #265d64;
+  --color-teal-900: #234e54;
+
+  /* Punchy orange from tournament flier art */
+  --color-flame-50: #fff7ed;
+  --color-flame-100: #ffedd5;
+  --color-flame-200: #fed7aa;
+  --color-flame-300: #fdba74;
+  --color-flame-400: #fb923c;
+  --color-flame-500: #f97316;
+  --color-flame-600: #ea6c0f;
+  --color-flame-700: #c2570a;
+  --color-flame-800: #9a4510;
+  --color-flame-900: #7c3a0f;
+
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
