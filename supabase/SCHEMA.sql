@@ -551,26 +551,22 @@ union all
 select id, '2026-05-03', 'Coed Doubles', 1 from public.tournaments where slug = 'season-opener-2026';
 
 -- 9.3 Divisions for Season Opener Saturday (single-gender + juniors) ------
--- All divisions are uncapped (max_teams = null) and triples format pending
--- owner confirmation per skill level. Update format per division if some
--- are doubles.
-
 with sat as (
   select td.id from public.tournament_days td
   join public.tournaments t on t.id = td.tournament_id
   where t.slug = 'season-opener-2026' and td.day_date = '2026-05-02'
 )
 insert into public.divisions (tournament_day_id, skill_level, gender, fee_cents, format, sort_order)
-select id, 'Open',  'mens',   11000, 'triples', 0 from sat
-union all select id, 'Open',  'womens', 11000, 'triples', 1 from sat
-union all select id, 'AA',    'mens',    8000, 'triples', 2 from sat
-union all select id, 'AA',    'womens',  8000, 'triples', 3 from sat
-union all select id, 'A',     'mens',    8000, 'triples', 4 from sat
-union all select id, 'A',     'womens',  8000, 'triples', 5 from sat
-union all select id, 'BB/B',  'mens',    8000, 'triples', 6 from sat
-union all select id, 'BB/B',  'womens',  8000, 'triples', 7 from sat
-union all select id, '16U',   'boys',    5000, 'triples', 8 from sat
-union all select id, '16U',   'girls',   5000, 'triples', 9 from sat;
+select id, 'Open',  'mens',   11000, 'doubles', 0 from sat
+union all select id, 'Open',  'womens', 11000, 'doubles', 1 from sat
+union all select id, 'AA',    'mens',    8000, 'doubles', 2 from sat
+union all select id, 'AA',    'womens',  8000, 'doubles', 3 from sat
+union all select id, 'A',     'mens',    8000, 'doubles', 4 from sat
+union all select id, 'A',     'womens',  8000, 'doubles', 5 from sat
+union all select id, 'BB/B',  'mens',    8000, 'doubles', 6 from sat
+union all select id, 'BB/B',  'womens',  8000, 'doubles', 7 from sat
+union all select id, '16U',   'boys',    5000, 'doubles', 8 from sat
+union all select id, '16U',   'girls',   5000, 'doubles', 9 from sat;
 
 -- 9.4 Divisions for Season Opener Sunday (coed) ---------------------------
 
@@ -580,10 +576,10 @@ with sun as (
   where t.slug = 'season-opener-2026' and td.day_date = '2026-05-03'
 )
 insert into public.divisions (tournament_day_id, skill_level, gender, fee_cents, format, sort_order)
-select id, 'Open', 'coed', 11000, 'triples', 0 from sun
-union all select id, 'AA',   'coed',  8000, 'triples', 1 from sun
-union all select id, 'A',    'coed',  8000, 'triples', 2 from sun
-union all select id, 'BB/B', 'coed',  8000, 'triples', 3 from sun;
+select id, 'Open', 'coed', 11000, 'doubles', 0 from sun
+union all select id, 'AA',   'coed',  8000, 'doubles', 1 from sun
+union all select id, 'A',    'coed',  8000, 'doubles', 2 from sun
+union all select id, 'BB/B', 'coed',  8000, 'doubles', 3 from sun;
 
 -- =========================================================================
 -- 10. register_order — transactional order creation (called by serverless fn)

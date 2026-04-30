@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -10,13 +10,9 @@ function getLastName(fullName: string): string {
   return parts.length > 1 ? (parts[parts.length - 1] ?? '') : (parts[0] ?? '')
 }
 
-function buildDefaultTeamName(leadName: string, otherPlayers: PlayerEntry[]): string {
-  const leadLast = getLastName(leadName)
-  const partnerName = otherPlayers.find((p) => p.name.trim())?.name ?? ''
-  const partnerLast = getLastName(partnerName)
-  if (leadLast && partnerLast) return `${leadLast} / ${partnerLast}`
-  if (leadLast) return leadLast
-  return ''
+function autoTeamName(players: PlayerEntry[]): string {
+  const names = players.map((p) => getLastName(p.name)).filter(Boolean)
+  return names.join(' / ')
 }
 
 interface RosterDaySectionProps {
@@ -27,53 +23,38 @@ interface RosterDaySectionProps {
 }
 
 function RosterDaySection({ entry, dayIndex, contactName, onChange }: RosterDaySectionProps) {
-  // Default to "I'm playing" when player 0 is empty or is already the contact's name
   const p0Name = entry.players[0]?.name ?? ''
   const [contactPlays, setContactPlays] = useState(p0Name === '' || p0Name === contactName)
 
-  const clampedPlayers: PlayerEntry[] = Array.from({ length: entry.teamSize }, (_, i) => ({
+  const slots: PlayerEntry[] = Array.from({ length: entry.teamSize }, (_, i) => ({
     name: entry.players[i]?.name ?? '',
   }))
 
-  function updatePlayer(index: number, patch: Partial<PlayerEntry>) {
-    const updated = clampedPlayers.map((p, i) => (i === index ? { ...p, ...patch } : p))
-    const leadName = contactPlays ? contactName : (updated[0]?.name ?? '')
-    const autoName = buildDefaultTeamName(leadName, contactPlays ? updated : updated.slice(1))
-    onChange({
-      players: updated,
-      teamName: entry.teamName || autoName,
-    })
+  // Sync store on mount: if contactPlays is on but player 0 in the store is still empty,
+  // write the contact name now so canProceed() sees a real value.
+  useEffect(() => {
+    if (contactPlays && contactName && (entry.players[0]?.name ?? '') !== contactName) {
+      const synced = slots.map((p, i) => (i === 0 ? { name: contactName } : p))
+      onChange({ players: synced, teamName: autoTeamName(synced) })
+    }
+    // Intentionally only on mount — corrects an initialization gap
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function updatePlayer(index: number, name: string) {
+    const updated = slots.map((p, i) => (i === index ? { name } : p))
+    const effective = updated.map((p, i) => (i === 0 && contactPlays ? { name: contactName } : p))
+    onChange({ players: effective, teamName: autoTeamName(effective) })
   }
 
   function handleContactPlaysToggle() {
     const next = !contactPlays
     setContactPlays(next)
-    const updated = clampedPlayers.map((p, i) =>
-      i === 0 ? { ...p, name: next ? contactName : '' } : p,
-    )
-    const autoName = buildDefaultTeamName(
-      next ? contactName : '',
-      next ? updated.slice(1) : updated.slice(1),
-    )
-    onChange({
-      players: updated,
-      teamName: entry.teamName || autoName,
-    })
+    const updated = slots.map((p, i) => (i === 0 ? { name: next ? contactName : '' } : p))
+    onChange({ players: updated, teamName: autoTeamName(updated) })
   }
 
-  function handlePlayerNameBlur() {
-    if (!entry.teamName) {
-      const leadName = contactPlays ? contactName : (clampedPlayers[0]?.name ?? '')
-      const others = contactPlays ? clampedPlayers : clampedPlayers.slice(1)
-      const name = buildDefaultTeamName(leadName, others)
-      if (name) onChange({ teamName: name })
-    }
-  }
-
-  // Effective display players — slot 0 shows contactName when contactPlays
-  const displayPlayers = clampedPlayers.map((p, i) =>
-    i === 0 && contactPlays ? { name: contactName } : p,
-  )
+  const displayPlayers = slots.map((p, i) => (i === 0 && contactPlays ? { name: contactName } : p))
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-4">
@@ -84,19 +65,6 @@ function RosterDaySection({ entry, dayIndex, contactName, onChange }: RosterDayS
           ({entry.divisionDisplayName})
         </span>
       </h3>
-
-      {/* Team name */}
-      <div>
-        <Label htmlFor={`team-name-${entry.tournamentDayId}`}>Team Name</Label>
-        <Input
-          id={`team-name-${entry.tournamentDayId}`}
-          type="text"
-          value={entry.teamName}
-          onChange={(e) => onChange({ teamName: e.target.value })}
-          placeholder="Smith / Jones"
-          className="mt-1"
-        />
-      </div>
 
       {/* "I'm playing" toggle */}
       <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -111,10 +79,10 @@ function RosterDaySection({ entry, dayIndex, contactName, onChange }: RosterDayS
         </span>
       </label>
 
-      {/* Player rows */}
+      {/* Player slots */}
       <div className="space-y-3">
         {displayPlayers.map((player, pIdx) => (
-          <div key={pIdx} className="flex-1">
+          <div key={pIdx}>
             <Label htmlFor={`player-${entry.tournamentDayId}-${pIdx}`}>
               Player {pIdx + 1}
               {pIdx === 0 && contactPlays ? ' (You)' : ''}
@@ -124,8 +92,7 @@ function RosterDaySection({ entry, dayIndex, contactName, onChange }: RosterDayS
               type="text"
               value={player.name}
               disabled={pIdx === 0 && contactPlays}
-              onChange={(e) => updatePlayer(pIdx, { name: e.target.value })}
-              onBlur={handlePlayerNameBlur}
+              onChange={(e) => updatePlayer(pIdx, e.target.value)}
               placeholder={`Player ${pIdx + 1} name`}
               className="mt-1"
             />
@@ -145,18 +112,18 @@ export default function StepRoster() {
   }
 
   function canProceed(): boolean {
-    return dayEntries.every((entry) => {
-      if (!entry.teamName.trim()) return false
-      if (entry.players.length !== entry.teamSize) return false
-      return entry.players.every((p) => p.name.trim().length > 0)
-    })
+    return dayEntries.every(
+      (entry) =>
+        entry.players.length === entry.teamSize &&
+        entry.players.every((p) => p.name.trim().length > 0),
+    )
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold text-gray-900">Roster</h2>
-        <p className="mt-1 text-sm text-gray-500">Enter your team name and players for each day.</p>
+        <p className="mt-1 text-sm text-gray-500">Enter the players for each day.</p>
       </div>
 
       <div className="space-y-4">
