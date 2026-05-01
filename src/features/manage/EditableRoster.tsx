@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { supabase } from '@/lib/supabase'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
@@ -68,21 +67,26 @@ export default function EditableRoster({ token, players }: EditableRosterProps) 
 
     updateRow(index, { saving: true, error: null, saved: false })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any).rpc('manage_team_update_player', {
-      token,
-      player_id: player.id,
-      new_name: row.name.trim(),
-      new_jersey_number: row.jerseyNumber.trim() || null,
-      new_shirt_size: row.shirtSize || null,
+    const res = await fetch('/api/manage-team-update-player', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token,
+        player_id: player.id,
+        new_name: row.name.trim(),
+        new_jersey_number: row.jerseyNumber.trim() || null,
+        new_shirt_size: row.shirtSize || null,
+      }),
     })
 
-    if (error) {
-      updateRow(index, { saving: false, error: error.message })
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string }
+      updateRow(index, { saving: false, error: body.error ?? 'Failed to save. Please try again.' })
       return
     }
 
-    if (data === false) {
+    const result = (await res.json()) as { data: boolean }
+    if (result.data === false) {
       updateRow(index, {
         saving: false,
         error: 'Could not update player. Edits may be locked or the link is invalid.',

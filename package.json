@@ -4,14 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "netlify dev",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "preview": "vite preview",
-    "prepare": "husky"
+    "prepare": "husky",
+    "db:migrate": "netlify database migrations apply"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -24,9 +25,9 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "@netlify/database": "^1.0.0",
     "@sentry/react": "^10.51.0",
     "@stripe/stripe-js": "^9.3.1",
-    "@supabase/supabase-js": "^2.105.1",
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-query": "^5.100.6",
     "class-variance-authority": "^0.7.1",
@@ -44,12 +45,13 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@netlify/functions": "^2.0.0",
+    "@netlify/vite-plugin": "^1.0.0",
     "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/vite": "^4.2.4",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@vercel/node": "^5.7.13",
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.2.1",
     "eslint-config-prettier": "^10.1.8",

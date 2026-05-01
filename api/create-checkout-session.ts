@@ -225,6 +225,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   const orderId = orderResult.order_id
 
   // ---------------------------------------------------------------------------
+  // 4b. Stripe bypass for local/dev testing (STRIPE_BYPASS=true)
+  // ---------------------------------------------------------------------------
+  if (process.env.STRIPE_BYPASS === 'true') {
+    const fakeSessionId = `dev_bypass_${orderId}`
+    const siteUrlBypass = process.env.PUBLIC_SITE_URL ?? ''
+
+    // Mark order as paid with a fake session ID
+    await supabaseAdmin
+      .from('registration_orders')
+      .update({
+        status: 'paid',
+        stripe_checkout_session_id: fakeSessionId,
+        paid_at: new Date().toISOString(),
+      })
+      .eq('id', orderId)
+
+    // Confirm all teams in this order
+    const teamIds = orderResult.teams.map((t) => t.team_id)
+    await supabaseAdmin.from('teams').update({ status: 'confirmed' }).in('id', teamIds)
+
+    // Insert a fake payment record
+    await supabaseAdmin.from('payments').insert({
+      order_id: orderId,
+      stripe_payment_intent_id: `pi_bypass_${orderId}`,
+      stripe_charge_id: `ch_bypass_${orderId}`,
+      amount_cents: totalCents,
+      currency: 'usd',
+      status: 'succeeded',
+      refunded_amount_cents: 0,
+    })
+
+    res
+      .status(200)
+      .json({
+        url: `${siteUrlBypass}/registration/success?session_id=${fakeSessionId}`,
+        order_id: orderId,
+      })
+    return
+  }
+
+  // ---------------------------------------------------------------------------
   // 5. Build Stripe line items
   // ---------------------------------------------------------------------------
   const siteUrl = process.env.PUBLIC_SITE_URL ?? ''
