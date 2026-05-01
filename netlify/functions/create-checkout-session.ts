@@ -8,13 +8,11 @@ import Stripe from 'stripe'
 // Types
 // ---------------------------------------------------------------------------
 
-/** Shape returned by the register_order RPC */
 interface RegisterOrderResult {
   order_id: string
   teams: Array<{ team_id: string; division_id: string }>
 }
 
-/** One team entry passed to the RPC */
 interface RpcTeamEntry {
   division_id: string
   name: string
@@ -120,19 +118,55 @@ export default async (req: Request, _context: Context): Promise<Response> => {
     })
   }
 
-  // 4. Call register_order RPC (transactional)
+  // 4. Transactional order creation
   let orderResult: RegisterOrderResult
+  const client = await db.pool.connect()
   try {
-    const rpcRows = await db.sql`SELECT public.register_order(
-      ${captain.email},
-      ${captain.name},
-      ${captain.phone},
-      ${captain.city},
-      ${totalCents},
-      ${JSON.stringify(rpcTeams)}::jsonb
-    ) AS result`
-    orderResult = (rpcRows[0] as { result: RegisterOrderResult }).result
+    await client.query('BEGIN')
+
+    const orderRes = await client.query<{ id: string }>(
+      `INSERT INTO public.registration_orders (captain_email, total_cents, status)
+       VALUES ($1, $2, 'pending') RETURNING id`,
+      [captain.email.toLowerCase().trim(), totalCents],
+    )
+    const orderId = orderRes.rows[0]!.id
+    const teams: RegisterOrderResult['teams'] = []
+
+    for (const entry of rpcTeams) {
+      const teamRes = await client.query<{ id: string }>(
+        `INSERT INTO public.teams (division_id, name, city, captain_name, captain_email, captain_phone, status)
+         VALUES ($1, $2, $3, $4, $5, $6, 'pending_payment') RETURNING id`,
+        [
+          entry.division_id,
+          entry.name,
+          captain.city?.trim() || null,
+          captain.name,
+          captain.email.toLowerCase().trim(),
+          captain.phone,
+        ],
+      )
+      const teamId = teamRes.rows[0]!.id
+
+      for (const p of entry.players) {
+        await client.query(
+          `INSERT INTO public.players (team_id, name, shirt_size, jersey_number, sort_order)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [teamId, p.name, p.shirt_size || null, p.jersey_number || null, p.sort_order],
+        )
+      }
+
+      await client.query(
+        `INSERT INTO public.registrations (order_id, team_id, amount_cents) VALUES ($1, $2, $3)`,
+        [orderId, teamId, entry.fee_cents],
+      )
+
+      teams.push({ team_id: teamId, division_id: entry.division_id })
+    }
+
+    await client.query('COMMIT')
+    orderResult = { order_id: orderId, teams }
   } catch (err: unknown) {
+    await client.query('ROLLBACK')
     const e = err as { code?: string }
     if (e?.code === '23505') {
       return Response.json(
@@ -140,8 +174,10 @@ export default async (req: Request, _context: Context): Promise<Response> => {
         { status: 409 },
       )
     }
-    console.error('[create-checkout-session] register_order error', err)
+    console.error('[create-checkout-session] order creation error', err)
     return Response.json({ error: 'internal' }, { status: 500 })
+  } finally {
+    client.release()
   }
 
   const orderId = orderResult.order_id

@@ -1,9 +1,5 @@
 -- Volley Monster — initial schema migration for Netlify Database
--- Conventions:
---   - All timestamps in UTC.
---   - Money in integer cents to avoid floating-point.
---   - UUIDs for all primary keys.
---   - created_at / updated_at on every table; trigger keeps updated_at fresh.
+-- Pure DDL only. Business logic lives in Netlify Functions (TypeScript).
 
 -- =========================================================================
 -- 1. Extensions
@@ -47,8 +43,7 @@ CREATE TYPE registration_status AS ENUM (
 -- =========================================================================
 
 CREATE OR REPLACE FUNCTION public.set_updated_at()
-RETURNS TRIGGER
-LANGUAGE plpgsql
+RETURNS TRIGGER LANGUAGE plpgsql
 AS 'BEGIN NEW.updated_at = NOW(); RETURN NEW; END';
 
 -- =========================================================================
@@ -241,7 +236,7 @@ CREATE INDEX idx_registrations_order         ON public.registrations(order_id);
 CREATE INDEX idx_registrations_team          ON public.registrations(team_id);
 
 -- =========================================================================
--- 6. Helper view: division capacity
+-- 6. Views
 -- =========================================================================
 
 CREATE OR REPLACE VIEW public.division_capacity AS
@@ -263,6 +258,17 @@ FROM public.divisions d
 JOIN public.tournament_days td ON td.id = d.tournament_day_id
 LEFT JOIN public.teams t ON t.division_id = d.id
 GROUP BY d.id, td.tournament_id;
+
+CREATE OR REPLACE VIEW public.teams_public AS
+SELECT
+  t.id,
+  t.division_id,
+  t.name,
+  t.city,
+  SPLIT_PART(t.captain_name, ' ', 1) AS captain_first_name,
+  t.created_at
+FROM public.teams t
+WHERE t.status = 'confirmed';
 
 -- =========================================================================
 -- 7. Row Level Security
@@ -306,174 +312,3 @@ CREATE POLICY "divisions_public_read"
 CREATE POLICY "teams_public_read_confirmed"
   ON public.teams FOR SELECT
   USING (status = 'confirmed');
-
--- =========================================================================
--- 8. Views and security-definer functions
--- =========================================================================
-
-CREATE OR REPLACE VIEW public.teams_public AS
-SELECT
-  t.id,
-  t.division_id,
-  t.name,
-  t.city,
-  SPLIT_PART(t.captain_name, ' ', 1) AS captain_first_name,
-  t.created_at
-FROM public.teams t
-WHERE t.status = 'confirmed';
-
-CREATE OR REPLACE FUNCTION public.manage_team_lookup(token UUID)
-RETURNS TABLE (
-  team_id           UUID,
-  team_name         TEXT,
-  city              TEXT,
-  captain_name      TEXT,
-  captain_email     TEXT,
-  captain_phone     TEXT,
-  status            team_status,
-  division_name     TEXT,
-  tournament_name   TEXT,
-  tournament_date   DATE,
-  players           JSONB
-)
-LANGUAGE sql
-SECURITY DEFINER
-SET search_path = public
-AS '
-  SELECT
-    t.id,
-    t.name,
-    t.city,
-    t.captain_name,
-    t.captain_email,
-    t.captain_phone,
-    t.status,
-    d.display_name,
-    tour.name,
-    tour.start_date,
-    COALESCE(
-      jsonb_agg(
-        jsonb_build_object(
-          ''id'', p.id,
-          ''name'', p.name,
-          ''jersey_number'', p.jersey_number,
-          ''shirt_size'', p.shirt_size,
-          ''sort_order'', p.sort_order
-        ) ORDER BY p.sort_order, p.created_at
-      ) FILTER (WHERE p.id IS NOT NULL),
-      ''[]''::jsonb
-    )
-  FROM public.teams t
-  JOIN public.divisions d         ON d.id = t.division_id
-  JOIN public.tournament_days td  ON td.id = d.tournament_day_id
-  JOIN public.tournaments tour    ON tour.id = td.tournament_id
-  LEFT JOIN public.players p      ON p.team_id = t.id
-  WHERE t.management_token = token
-  GROUP BY t.id, d.display_name, tour.name, tour.start_date
-';
-
-CREATE OR REPLACE FUNCTION public.manage_team_update_player(
-  token            UUID,
-  player_id        UUID,
-  new_name         TEXT,
-  new_jersey_number TEXT,
-  new_shirt_size   TEXT
-) RETURNS BOOLEAN
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS '
-DECLARE
-  v_team_id          UUID;
-  v_tournament_start DATE;
-BEGIN
-  SELECT t.id, tour.start_date
-    INTO v_team_id, v_tournament_start
-  FROM public.teams t
-  JOIN public.divisions d         ON d.id = t.division_id
-  JOIN public.tournament_days td  ON td.id = d.tournament_day_id
-  JOIN public.tournaments tour    ON tour.id = td.tournament_id
-  WHERE t.management_token = token;
-
-  IF v_team_id IS NULL THEN
-    RETURN FALSE;
-  END IF;
-
-  IF v_tournament_start - CURRENT_DATE < 2 THEN
-    RAISE EXCEPTION ''Edits are locked within 48 hours of the tournament.'';
-  END IF;
-
-  UPDATE public.players
-     SET name          = new_name,
-         jersey_number = new_jersey_number,
-         shirt_size    = new_shirt_size
-   WHERE id = player_id AND team_id = v_team_id;
-
-  RETURN FOUND;
-END
-';
-
-CREATE OR REPLACE FUNCTION public.register_order(
-  p_captain_email  TEXT,
-  p_captain_name   TEXT,
-  p_captain_phone  TEXT,
-  p_captain_city   TEXT,
-  p_total_cents    INTEGER,
-  p_teams          JSONB
-) RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS '
-DECLARE
-  v_order_id  UUID;
-  v_team      JSONB;
-  v_team_id   UUID;
-  v_player    JSONB;
-  v_result    JSONB := ''[]''::JSONB;
-BEGIN
-  INSERT INTO public.registration_orders (captain_email, total_cents, status)
-  VALUES (lower(trim(p_captain_email)), p_total_cents, ''pending'')
-  RETURNING id INTO v_order_id;
-
-  FOR v_team IN SELECT * FROM jsonb_array_elements(p_teams)
-  LOOP
-    INSERT INTO public.teams (division_id, name, city, captain_name, captain_email, captain_phone, status)
-    VALUES (
-      (v_team->>''division_id'')::UUID,
-      v_team->>''name'',
-      NULLIF(trim(p_captain_city), ''''),
-      p_captain_name,
-      lower(trim(p_captain_email)),
-      p_captain_phone,
-      ''pending_payment''
-    )
-    RETURNING id INTO v_team_id;
-
-    FOR v_player IN SELECT * FROM jsonb_array_elements(v_team->''players'')
-    LOOP
-      INSERT INTO public.players (team_id, name, shirt_size, jersey_number, sort_order)
-      VALUES (
-        v_team_id,
-        v_player->>''name'',
-        NULLIF(v_player->>''shirt_size'', ''''),
-        NULLIF(v_player->>''jersey_number'', ''''),
-        COALESCE((v_player->>''sort_order'')::INTEGER, 0)
-      );
-    END LOOP;
-
-    INSERT INTO public.registrations (order_id, team_id, amount_cents)
-    VALUES (
-      v_order_id,
-      v_team_id,
-      (v_team->>''fee_cents'')::INTEGER
-    );
-
-    v_result := v_result || jsonb_build_array(
-      jsonb_build_object(''team_id'', v_team_id, ''division_id'', v_team->>''division_id'')
-    );
-  END LOOP;
-
-  RETURN jsonb_build_object(''order_id'', v_order_id, ''teams'', v_result);
-END
-';
