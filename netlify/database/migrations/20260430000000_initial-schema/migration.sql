@@ -1,15 +1,9 @@
 -- Volley Monster — initial schema migration for Netlify Database
 -- Pure DDL only. Business logic lives in Netlify Functions (TypeScript).
+-- Uses gen_random_uuid() (built-in since PG 13) — no extensions required.
 
 -- =========================================================================
--- 1. Extensions
--- =========================================================================
-
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
--- =========================================================================
--- 2. Enums
+-- 1. Enums
 -- =========================================================================
 
 CREATE TYPE tournament_status AS ENUM (
@@ -39,7 +33,7 @@ CREATE TYPE registration_status AS ENUM (
 );
 
 -- =========================================================================
--- 3. Helper: updated_at trigger
+-- 2. Helper: updated_at trigger
 -- =========================================================================
 
 CREATE OR REPLACE FUNCTION public.set_updated_at()
@@ -47,11 +41,11 @@ RETURNS TRIGGER LANGUAGE plpgsql
 AS 'BEGIN NEW.updated_at = NOW(); RETURN NEW; END';
 
 -- =========================================================================
--- 4. Tables
+-- 3. Tables
 -- =========================================================================
 
 CREATE TABLE public.tournaments (
-  id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug                    TEXT NOT NULL UNIQUE,
   name                    TEXT NOT NULL,
   description_md          TEXT,
@@ -76,7 +70,7 @@ CREATE TRIGGER tournaments_set_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 CREATE TABLE public.tournament_days (
-  id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tournament_id  UUID NOT NULL REFERENCES public.tournaments(id) ON DELETE CASCADE,
   day_date       DATE NOT NULL,
   label          TEXT,
@@ -94,7 +88,7 @@ CREATE TRIGGER tournament_days_set_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 CREATE TABLE public.divisions (
-  id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tournament_day_id UUID NOT NULL REFERENCES public.tournament_days(id) ON DELETE CASCADE,
   skill_level       TEXT NOT NULL,
   gender            division_gender NOT NULL,
@@ -129,7 +123,7 @@ CREATE TRIGGER divisions_set_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 CREATE TABLE public.teams (
-  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   division_id      UUID NOT NULL REFERENCES public.divisions(id) ON DELETE RESTRICT,
   name             TEXT NOT NULL,
   city             TEXT,
@@ -137,7 +131,7 @@ CREATE TABLE public.teams (
   captain_email    TEXT NOT NULL,
   captain_phone    TEXT NOT NULL,
   status           team_status NOT NULL DEFAULT 'pending_payment',
-  management_token UUID NOT NULL DEFAULT uuid_generate_v4() UNIQUE,
+  management_token UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
   notes            TEXT,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -149,7 +143,7 @@ CREATE TRIGGER teams_set_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 CREATE TABLE public.players (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   team_id       UUID NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
   name          TEXT NOT NULL,
   jersey_number TEXT,
@@ -164,7 +158,7 @@ CREATE TRIGGER players_set_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 CREATE TABLE public.registration_orders (
-  id                          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   captain_email               TEXT NOT NULL,
   total_cents                 INTEGER NOT NULL,
   currency                    TEXT NOT NULL DEFAULT 'usd',
@@ -181,7 +175,7 @@ CREATE TRIGGER registration_orders_set_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 CREATE TABLE public.registrations (
-  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id     UUID NOT NULL REFERENCES public.registration_orders(id) ON DELETE CASCADE,
   team_id      UUID NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
   amount_cents INTEGER NOT NULL,
@@ -195,7 +189,7 @@ CREATE TRIGGER registrations_set_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 CREATE TABLE public.payments (
-  id                        UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id                  UUID NOT NULL REFERENCES public.registration_orders(id) ON DELETE CASCADE,
   stripe_payment_intent_id  TEXT NOT NULL UNIQUE,
   stripe_charge_id          TEXT,
@@ -220,7 +214,7 @@ CREATE TABLE public.processed_webhooks (
 );
 
 -- =========================================================================
--- 5. Indexes
+-- 4. Indexes
 -- =========================================================================
 
 CREATE INDEX idx_tournaments_status_start   ON public.tournaments(status, start_date);
@@ -236,7 +230,7 @@ CREATE INDEX idx_registrations_order         ON public.registrations(order_id);
 CREATE INDEX idx_registrations_team          ON public.registrations(team_id);
 
 -- =========================================================================
--- 6. Views
+-- 5. Views
 -- =========================================================================
 
 CREATE OR REPLACE VIEW public.division_capacity AS
@@ -271,7 +265,7 @@ FROM public.teams t
 WHERE t.status = 'confirmed';
 
 -- =========================================================================
--- 7. Row Level Security
+-- 6. Row Level Security
 -- =========================================================================
 
 ALTER TABLE public.tournaments          ENABLE ROW LEVEL SECURITY;

@@ -5,6 +5,11 @@
 [build.environment]
   NODE_VERSION = "20"
 
+[dev]
+  command = "vite"
+  targetPort = 5173
+  autoLaunch = false
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
