@@ -1,5 +1,4 @@
 import type { Config, Context } from '@netlify/functions'
-import { purgeCache } from '@netlify/functions'
 import { orderSubmitSchema } from '../../src/lib/schemas/registration'
 import { db } from './_lib/db'
 import { stripe } from './_lib/stripe'
@@ -146,42 +145,6 @@ export default async (req: Request, _context: Context): Promise<Response> => {
   }
 
   const orderId = orderResult.order_id
-
-  // 4b. Stripe bypass for local/dev testing (STRIPE_BYPASS=true)
-  if (process.env.STRIPE_BYPASS === 'true') {
-    const fakeSessionId = `dev_bypass_${orderId}`
-    const siteUrlBypass = process.env.PUBLIC_SITE_URL ?? ''
-
-    const client = await db.pool.connect()
-    try {
-      await client.query('BEGIN')
-      await client.query(
-        `UPDATE registration_orders SET status='paid', stripe_checkout_session_id=$1, paid_at=NOW() WHERE id=$2`,
-        [fakeSessionId, orderId],
-      )
-      const teamIds = orderResult.teams.map((t) => t.team_id)
-      await client.query(`UPDATE teams SET status='confirmed' WHERE id = ANY($1::uuid[])`, [
-        teamIds,
-      ])
-      await client.query(
-        `INSERT INTO payments (order_id, stripe_payment_intent_id, stripe_charge_id, amount_cents, currency, status, refunded_amount_cents)
-         VALUES ($1, $2, $3, $4, 'usd', 'succeeded', 0)`,
-        [orderId, `pi_bypass_${orderId}`, `ch_bypass_${orderId}`, totalCents],
-      )
-      await client.query('COMMIT')
-    } catch (e) {
-      await client.query('ROLLBACK')
-      throw e
-    } finally {
-      client.release()
-    }
-
-    await purgeCache({ tags: ['tournaments'] }).catch(() => {})
-    return Response.json({
-      url: `${siteUrlBypass}/registration/success?session_id=${fakeSessionId}`,
-      order_id: orderId,
-    })
-  }
 
   // 5. Build Stripe line items
   const siteUrl = process.env.PUBLIC_SITE_URL ?? ''
