@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
-import type { TeamStatus } from '@/lib/database.types'
 import EditableRoster from '@/features/manage/EditableRoster'
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+type TeamStatus = 'pending_payment' | 'confirmed' | 'waitlisted' | 'cancelled'
 
 interface Player {
   id: string
@@ -106,22 +106,18 @@ export default function ManageTeamPage() {
     let cancelled = false
 
     async function load() {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any).rpc('manage_team_lookup', {
-        token: token!,
-      })
+      const res = await fetch(`/api/manage-team?token=${encodeURIComponent(token!)}`)
 
       if (cancelled) return
 
-      if (error || !data || data.length === 0) {
+      if (!res.ok) {
         setPageState({ phase: 'invalid' })
         return
       }
 
-      const row = data[0]!
+      const row = (await res.json()) as Record<string, unknown>
 
-      // Parse players from the JSON field returned by the security-definer function
-      const rawPlayers = Array.isArray(row.players) ? (row.players as unknown[]) : []
+      const rawPlayers = Array.isArray(row['players']) ? (row['players'] as unknown[]) : []
 
       const players: Player[] = (rawPlayers as Array<Record<string, unknown>>).map((p) => ({
         id: String(p['id'] ?? ''),
@@ -134,16 +130,16 @@ export default function ManageTeamPage() {
       setPageState({
         phase: 'ready',
         team: {
-          team_id: row.team_id,
-          team_name: row.team_name,
-          city: row.city,
-          captain_name: row.captain_name,
-          captain_email: row.captain_email,
-          captain_phone: row.captain_phone,
-          status: row.status,
-          division_name: row.division_name,
-          tournament_name: row.tournament_name,
-          tournament_date: row.tournament_date,
+          team_id: row['team_id'] as string,
+          team_name: row['team_name'] as string,
+          city: row['city'] as string | null,
+          captain_name: row['captain_name'] as string,
+          captain_email: row['captain_email'] as string,
+          captain_phone: row['captain_phone'] as string,
+          status: row['status'] as TeamStatus,
+          division_name: row['division_name'] as string,
+          tournament_name: row['tournament_name'] as string,
+          tournament_date: row['tournament_date'] as string,
           players,
         },
       })

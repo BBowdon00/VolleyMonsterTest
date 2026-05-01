@@ -1,0 +1,36 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[edge_functions]
+  directory = "netlify/edge-functions"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; frame-src https://js.stripe.com; connect-src 'self' https://api.stripe.com; img-src 'self' data: https://zjqoyxxjadqkfzymktgd.supabase.co; style-src 'self' 'unsafe-inline'"
+
+[images]
+  remote_images = ["https://zjqoyxxjadqkfzymktgd\\.supabase\\.co/.*"]
+
+# ── Deploy contexts ───────────────────────────────────────────────────────────
+# Production: real Stripe, real DB. Secrets set in Netlify dashboard only.
+[context.production.environment]
+  PUBLIC_SITE_URL = "https://volleymonster.com"
+
+[context.deploy-preview.environment]
+  PUBLIC_SITE_URL = "https://deploy-preview-$DEPLOY_ID--volleymonster.netlify.app"

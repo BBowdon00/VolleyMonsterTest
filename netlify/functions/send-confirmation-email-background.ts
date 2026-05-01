@@ -1,5 +1,5 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { supabaseAdmin } from './_lib/supabaseAdmin'
+import type { Config } from '@netlify/functions'
+import { db } from './_lib/db'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -9,6 +9,7 @@ interface PlayerRow {
   name: string
   jersey_number: string | null
   shirt_size: string | null
+  sort_order: number
 }
 
 interface TeamRow {
@@ -39,120 +40,112 @@ interface OrderData {
 
 async function fetchOrderData(orderId: string): Promise<OrderData | null> {
   // Fetch the order itself
-  const { data: order, error: orderErr } = await supabaseAdmin
-    .from('registration_orders')
-    .select('id, captain_email, total_cents')
-    .eq('id', orderId)
-    .single()
-
-  if (orderErr || !order) return null
+  const orderRows = await db.sql`
+    SELECT id, captain_email, total_cents
+    FROM registration_orders
+    WHERE id = ${orderId}
+    LIMIT 1
+  `
+  const order = orderRows[0] as
+    | { id: string; captain_email: string; total_cents: number }
+    | undefined
+  if (!order) return null
 
   // Fetch all registrations for this order with full team/division/day/tournament chain
-  const { data: registrations, error: regErr } = await supabaseAdmin
-    .from('registrations')
-    .select(
-      `
-      amount_cents,
-      teams (
-        id,
-        name,
-        captain_name,
-        management_token,
-        players ( name, jersey_number, shirt_size, sort_order ),
-        divisions (
-          display_name,
-          tournament_days (
-            label,
-            day_date,
-            tournaments (
-              name,
-              location_name,
-              location_city,
-              location_state
-            )
-          )
-        )
-      )
-    `,
-    )
-    .eq('order_id', orderId)
+  const regRows = await db.sql`
+    SELECT
+      r.amount_cents,
+      t.id             AS team_id,
+      t.name           AS team_name,
+      t.captain_name,
+      t.management_token,
+      d.display_name   AS division_name,
+      td.label         AS day_label,
+      td.day_date,
+      tour.name        AS tournament_name,
+      tour.location_name,
+      tour.location_city,
+      tour.location_state
+    FROM registrations r
+    JOIN teams t         ON t.id = r.team_id
+    JOIN divisions d     ON d.id = t.division_id
+    JOIN tournament_days td ON td.id = d.tournament_day_id
+    JOIN tournaments tour   ON tour.id = td.tournament_id
+    WHERE r.order_id = ${orderId}
+    ORDER BY t.id
+  `
 
-  if (regErr || !registrations || registrations.length === 0) return null
+  if (!regRows || regRows.length === 0) return null
 
-  const firstReg = registrations[0]
-  const firstTeam = firstReg?.teams as unknown as {
+  type RegRow = {
+    amount_cents: number
+    team_id: string
+    team_name: string
     captain_name: string
-    divisions: {
-      tournament_days: {
-        tournaments: {
-          name: string
-          location_name: string | null
-          location_city: string | null
-          location_state: string | null
-        }
-      }
+    management_token: string
+    division_name: string
+    day_label: string | null
+    day_date: string
+    tournament_name: string
+    location_name: string | null
+    location_city: string | null
+    location_state: string | null
+  }
+
+  const typedRows = regRows as RegRow[]
+  const firstRow = typedRows[0]!
+
+  // Fetch players for all teams in this order
+  const teamIds = typedRows.map((r) => r.team_id)
+  const playerRows = await db.sql`
+    SELECT team_id, id, name, jersey_number, shirt_size, sort_order
+    FROM players
+    WHERE team_id = ANY(${teamIds}::uuid[])
+    ORDER BY team_id, sort_order, created_at
+  `
+
+  type PRow = {
+    team_id: string
+    id: string
+    name: string
+    jersey_number: string | null
+    shirt_size: string | null
+    sort_order: number
+  }
+
+  // Group players by team_id
+  const playersByTeam = new Map<string, PlayerRow[]>()
+  for (const p of playerRows as PRow[]) {
+    if (!playersByTeam.has(p.team_id)) {
+      playersByTeam.set(p.team_id, [])
     }
-  } | null
+    playersByTeam.get(p.team_id)!.push({
+      name: p.name,
+      jersey_number: p.jersey_number,
+      shirt_size: p.shirt_size,
+      sort_order: p.sort_order,
+    })
+  }
 
-  if (!firstTeam) return null
-
-  const tournament = firstTeam.divisions.tournament_days.tournaments
-  const captainName = firstTeam.captain_name
-
-  const teams: TeamRow[] = registrations.map((reg) => {
-    const team = reg.teams as unknown as {
-      id: string
-      name: string
-      management_token: string
-      players: PlayerRow[]
-      divisions: {
-        display_name: string
-        tournament_days: {
-          label: string | null
-          day_date: string
-        }
-      }
-    } | null
-
-    if (!team) {
-      return {
-        team_id: '',
-        team_name: '',
-        division_name: '',
-        day_label: '',
-        tournament_date: '',
-        fee_cents: 0,
-        management_token: '',
-        players: [],
-      }
-    }
-
-    const sortedPlayers = [...team.players].sort(
-      (a, b) =>
-        ((a as PlayerRow & { sort_order: number }).sort_order ?? 0) -
-        ((b as PlayerRow & { sort_order: number }).sort_order ?? 0),
-    )
-
-    return {
-      team_id: team.id,
-      team_name: team.name,
-      division_name: team.divisions.display_name,
-      day_label: team.divisions.tournament_days.label ?? team.divisions.tournament_days.day_date,
-      tournament_date: team.divisions.tournament_days.day_date,
-      fee_cents: reg.amount_cents,
-      management_token: team.management_token,
-      players: sortedPlayers,
-    }
-  })
+  const teams: TeamRow[] = typedRows.map((reg) => ({
+    team_id: reg.team_id,
+    team_name: reg.team_name,
+    division_name: reg.division_name,
+    day_label: reg.day_label ?? reg.day_date,
+    tournament_date: reg.day_date,
+    fee_cents: reg.amount_cents,
+    management_token: reg.management_token,
+    players: playersByTeam.get(reg.team_id) ?? [],
+  }))
 
   return {
     captain_email: order.captain_email,
-    captain_name: captainName,
+    captain_name: firstRow.captain_name,
     total_cents: order.total_cents,
-    tournament_name: tournament.name,
-    venue_name: tournament.location_name ?? '',
-    venue_city: tournament.location_city ?? '',
-    venue_state: tournament.location_state ?? '',
+    tournament_name: firstRow.tournament_name,
+    venue_name: firstRow.location_name ?? '',
+    venue_city: firstRow.location_city ?? '',
+    venue_state: firstRow.location_state ?? '',
     teams,
   }
 }
@@ -303,21 +296,24 @@ function buildEmailHtml(data: OrderData, siteUrl: string): string {
 // Handler
 // ---------------------------------------------------------------------------
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
+export default async (req: Request): Promise<Response> => {
+  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
+
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return Response.json({ error: 'invalid_json' }, { status: 400 })
   }
 
-  const body = req.body as { order_id?: string }
-  const orderId = body?.order_id
-
+  const orderId = (body as { order_id?: string })?.order_id
   if (!orderId) {
-    return res.status(400).json({ error: 'order_id is required' })
+    return Response.json({ error: 'order_id is required' }, { status: 400 })
   }
 
   const orderData = await fetchOrderData(orderId)
   if (!orderData) {
-    return res.status(404).json({ error: 'Order not found' })
+    return Response.json({ error: 'Order not found' }, { status: 404 })
   }
 
   const siteUrl = process.env.PUBLIC_SITE_URL ?? 'https://volleymonster.com'
@@ -350,5 +346,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Fire-and-forget: don't propagate the error to the caller
   }
 
-  return res.status(200).json({ ok: true })
+  return Response.json({ ok: true })
 }
+
+export const config: Config = { path: '/api/send-confirmation-email' }
