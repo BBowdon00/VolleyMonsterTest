@@ -26,3 +26,19 @@
 
 [images]
   remote_images = ["https://zjqoyxxjadqkfzymktgd\\.supabase\\.co/.*"]
+
+# ── Deploy contexts ───────────────────────────────────────────────────────────
+# Production: real Stripe, real DB. Secrets set in Netlify dashboard only.
+[context.production.environment]
+  PUBLIC_SITE_URL = "https://volleymonster.com"
+
+# Deploy previews (auto-created for every branch push) and branch deploys:
+# STRIPE_BYPASS=true so the full registration flow works without a real Stripe key.
+# The bypass-guard edge function already blocks STRIPE_BYPASS in production as a
+# second line of defence.
+[context.deploy-preview.environment]
+  STRIPE_BYPASS = "true"
+  PUBLIC_SITE_URL = "https://deploy-preview-$DEPLOY_ID--volleymonster.netlify.app"
+
+[context.branch-deploy.environment]
+  STRIPE_BYPASS = "true"
