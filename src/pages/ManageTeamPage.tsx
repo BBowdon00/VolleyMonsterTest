@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
-import type { TeamStatus } from '@/lib/database.types'
 import EditableRoster from '@/features/manage/EditableRoster'
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+type TeamStatus = 'pending_payment' | 'confirmed' | 'waitlisted' | 'cancelled'
 
 interface Player {
   id: string
