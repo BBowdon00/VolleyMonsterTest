@@ -31,11 +31,11 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
         <img
           src={tournament.hero_image_url}
           alt={tournament.name}
-          className="h-44 w-full object-cover"
+          className="aspect-[4/5] w-full bg-gray-50 object-contain"
         />
       ) : (
         <div
-          className="h-44 w-full bg-gradient-to-br from-teal-400 to-teal-600"
+          className="aspect-[4/5] w-full bg-gradient-to-br from-teal-400 to-teal-600"
           aria-hidden="true"
         />
       )}

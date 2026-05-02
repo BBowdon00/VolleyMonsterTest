@@ -50,7 +50,7 @@ export default function TournamentsListPage() {
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="h-72 animate-pulse rounded-2xl border border-gray-200 bg-gray-100"
+              className="h-[32rem] animate-pulse rounded-2xl border border-gray-200 bg-gray-100"
               aria-hidden="true"
             />
           ))}

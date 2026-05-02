@@ -108,11 +108,12 @@ export default function RegistrationSuccessPage() {
   if (pollStatus === 'timeout') {
     return (
       <div className="mx-auto max-w-xl px-4 py-16 text-center">
-        <div className="text-5xl">✅</div>
-        <h1 className="mt-4 text-3xl font-black text-gray-900">Payment received</h1>
+        <div className="text-5xl">⏳</div>
+        <h1 className="mt-4 text-3xl font-black text-gray-900">Payment is processing</h1>
         <p className="mt-3 text-gray-600">
-          Your confirmation email is on its way. If you don't see it within a few minutes, check
-          your spam folder.
+          Your charge has been received, but we're still finalizing your registration. You'll get a
+          confirmation email once it's complete. If you don't see it within 5 minutes, please
+          contact us.
         </p>
         <Link
           to="/tournaments"
