@@ -8,8 +8,8 @@ import { db } from './_lib/db'
 // Blocked in production via context.deploy.context.
 
 export default async (_req: Request, context: Context): Promise<Response> => {
-  if (context.deploy.context !== 'dev') {
-    return new Response('Forbidden outside local dev', { status: 403 })
+  if (context.deploy.context === 'production') {
+    return new Response('Forbidden in production', { status: 403 })
   }
 
   const sqlPath = path.join(process.cwd(), 'netlify', 'database', 'seed-dev.sql')

@@ -14,6 +14,9 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+[functions."seed-dev"]
+  included_files = ["netlify/database/seed-dev.sql"]
+
 
 [[headers]]
   for = "/*"
