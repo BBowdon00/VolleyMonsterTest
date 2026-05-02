@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import type { DivisionWithTeams } from '@/api/tournaments'
+import { useDivisionTeams } from '@/api/tournaments'
+import type { DivisionWithTeams, PublicTeam } from '@/api/tournaments'
 
 interface DivisionsTableProps {
   divisions: DivisionWithTeams[]
@@ -15,6 +16,35 @@ const GENDER_LABELS: Record<string, string> = {
   coed: 'Coed',
   boys: 'Boys',
   girls: 'Girls',
+}
+
+function TeamsPanel({ divisionId, isOpen }: { divisionId: string; isOpen: boolean }) {
+  const { data: teams, isLoading, isError } = useDivisionTeams(divisionId, isOpen)
+
+  if (isLoading) {
+    return <p className="py-2 text-sm text-gray-500">Loading teams…</p>
+  }
+  if (isError) {
+    return <p className="py-2 text-sm text-red-600">Failed to load teams.</p>
+  }
+  if (!teams || teams.length === 0) {
+    return (
+      <p className="py-2 text-sm text-gray-500 italic">
+        No confirmed teams yet — be the first to register!
+      </p>
+    )
+  }
+
+  return (
+    <ol className="divide-y divide-gray-100">
+      {teams.map((team: PublicTeam, i: number) => (
+        <li key={team.id} className="flex items-baseline gap-3 py-2 text-sm">
+          <span className="w-6 text-right font-mono text-xs text-gray-400">{i + 1}.</span>
+          <span className="text-gray-700">{team.players.map((p) => p.name).join(', ')}</span>
+        </li>
+      ))}
+    </ol>
+  )
 }
 
 function DivisionRows({
@@ -46,31 +76,40 @@ function DivisionRows({
           const isClosed = division.status === 'closed'
 
           return (
-            <tr key={division.id} className="transition-colors hover:bg-gray-50">
-              <td className="px-4 py-3 font-medium text-gray-900">
-                {division.skill_level}
-                {division.status === 'waitlist' && (
-                  <span className="ml-2 text-xs font-normal text-amber-600">(Waitlist)</span>
-                )}
-                {isClosed && (
-                  <span className="ml-2 text-xs font-normal text-gray-400">(Closed)</span>
-                )}
-              </td>
-              <td className="px-4 py-3 text-gray-600">${feeDollars}</td>
-              <td className="px-4 py-3 text-gray-600">{capacityText}</td>
-              <td className="px-4 py-3 text-right">
-                <Button
-                  size="sm"
-                  variant={isClosed ? 'outline' : 'default'}
-                  disabled={isClosed}
-                  onClick={() =>
-                    navigate(`/tournaments/${tournamentSlug}/register?division=${division.id}`)
-                  }
-                >
-                  Register
-                </Button>
-              </td>
-            </tr>
+            <Fragment key={division.id}>
+              <tr>
+                <td className="px-4 py-3 font-medium text-gray-900">
+                  {division.skill_level}
+                  {division.status === 'waitlist' && (
+                    <span className="ml-2 text-xs font-normal text-amber-600">(Waitlist)</span>
+                  )}
+                  {isClosed && (
+                    <span className="ml-2 text-xs font-normal text-gray-400">(Closed)</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-gray-600">${feeDollars}</td>
+                <td className="px-4 py-3 text-gray-600">{capacityText}</td>
+                <td className="px-4 py-3 text-right">
+                  <Button
+                    size="sm"
+                    variant={isClosed ? 'outline' : 'default'}
+                    disabled={isClosed}
+                    onClick={() =>
+                      navigate(`/tournaments/${tournamentSlug}/register?division=${division.id}`)
+                    }
+                  >
+                    Register
+                  </Button>
+                </td>
+              </tr>
+              {division.confirmedTeamCount > 0 && (
+                <tr className="bg-teal-50/40">
+                  <td colSpan={4} className="px-6 py-3 border-l-2 border-teal-300">
+                    <TeamsPanel divisionId={division.id} isOpen={true} />
+                  </td>
+                </tr>
+              )}
+            </Fragment>
           )
         })}
       </tbody>
@@ -87,7 +126,7 @@ function GenderSection({
   divisions: DivisionWithTeams[]
   tournamentSlug: string
 }) {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
 
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200">
@@ -124,7 +163,6 @@ export default function DivisionsTable({ divisions, tournamentSlug }: DivisionsT
     divisions: divisions.filter((d) => d.gender === gender),
   })).filter((g) => g.divisions.length > 0)
 
-  // Single gender — skip the collapsible wrapper, just show the table directly
   if (groups.length === 1) {
     return (
       <div className="overflow-hidden rounded-lg border border-gray-200">

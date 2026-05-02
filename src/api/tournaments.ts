@@ -58,6 +58,11 @@ export const TournamentDetailSchema = TournamentSchema.extend({
   tournament_days: z.array(TournamentDayWithDivisionsSchema),
 })
 
+export const PublicTeamSchema = z.object({
+  id: z.string(),
+  players: z.array(z.object({ name: z.string() })),
+})
+
 export type Tournament = z.infer<typeof TournamentSchema>
 export type TournamentDay = z.infer<typeof TournamentDaySchema>
 export type Division = z.infer<typeof DivisionSchema>
@@ -65,6 +70,7 @@ export type DivisionWithTeams = z.infer<typeof DivisionWithTeamsSchema>
 export type TournamentDayWithDivisions = z.infer<typeof TournamentDayWithDivisionsSchema>
 export type TournamentSummary = z.infer<typeof TournamentSummarySchema>
 export type TournamentDetail = z.infer<typeof TournamentDetailSchema>
+export type PublicTeam = z.infer<typeof PublicTeamSchema>
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
 
@@ -84,6 +90,12 @@ export async function getTournamentBySlug(slug: string): Promise<TournamentDetai
   return TournamentDetailSchema.parse(data)
 }
 
+export async function getDivisionTeams(divisionId: string): Promise<PublicTeam[]> {
+  const res = await fetch(`/api/division-teams?division_id=${encodeURIComponent(divisionId)}`)
+  if (!res.ok) throw new Error(`Failed to fetch teams: ${res.status}`)
+  return z.array(PublicTeamSchema).parse(await res.json())
+}
+
 // ─── TanStack Query hooks ─────────────────────────────────────────────────────
 
 export function useUpcomingTournaments(limit?: number) {
@@ -98,5 +110,13 @@ export function useTournament(slug: string) {
     queryKey: ['tournaments', slug],
     queryFn: () => getTournamentBySlug(slug),
     enabled: Boolean(slug),
+  })
+}
+
+export function useDivisionTeams(divisionId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['division-teams', divisionId],
+    queryFn: () => getDivisionTeams(divisionId),
+    enabled: Boolean(divisionId) && enabled,
   })
 }

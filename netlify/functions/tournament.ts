@@ -23,11 +23,11 @@ export default async (req: Request): Promise<Response> => {
       d.sort_order     AS div_sort_order,
       COALESCE(dc.confirmed_teams, 0) AS confirmed_teams
     FROM tournaments t
-    JOIN tournament_days td ON td.tournament_id = t.id
-    JOIN divisions d ON d.tournament_day_id = td.id
+    LEFT JOIN tournament_days td ON td.tournament_id = t.id
+    LEFT JOIN divisions d ON d.tournament_day_id = td.id
     LEFT JOIN division_capacity dc ON dc.division_id = d.id
     WHERE t.slug = ${slug}
-    ORDER BY td.sort_order, d.sort_order
+    ORDER BY td.sort_order NULLS LAST, d.sort_order NULLS LAST
   `
 
   if (rows.length === 0) return Response.json({ error: 'Tournament not found' }, { status: 404 })
@@ -54,7 +54,8 @@ export default async (req: Request): Promise<Response> => {
         registration_closes_at: r['registration_closes_at'],
       }
     }
-    const dayId = r['day_id'] as string
+    const dayId = r['day_id'] as string | null
+    if (!dayId) continue
     if (!dayMap.has(dayId)) {
       dayMap.set(dayId, {
         id: dayId,
@@ -68,10 +69,12 @@ export default async (req: Request): Promise<Response> => {
       })
     }
     const day = dayMap.get(dayId)!
+    const divId = r['div_id'] as string | null
+    if (!divId) continue
     const confirmedTeamCount = Number(r['confirmed_teams'] ?? 0)
     const maxTeams = r['max_teams'] as number | null
     ;(day['divisions'] as unknown[]).push({
-      id: r['div_id'],
+      id: divId,
       tournament_day_id: r['tournament_day_id'],
       skill_level: r['skill_level'],
       gender: r['gender'],

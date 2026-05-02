@@ -5,7 +5,6 @@ import { useTournament } from '@/api/tournaments'
 import type { TournamentDayWithDivisions } from '@/api/tournaments'
 import TournamentHero from '@/components/TournamentHero'
 import DivisionsTable from '@/components/DivisionsTable'
-import RegisteredTeamsList from '@/components/RegisteredTeamsList'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
 
 function getDefaultDayIndex(days: TournamentDayWithDivisions[]): number {
@@ -183,17 +182,16 @@ export default function TournamentDetailPage() {
 
                 {/* Divisions */}
                 <section>
-                  <h2 className="mb-3 text-lg font-bold text-gray-900">Divisions</h2>
+                  <div className="mb-3 flex items-baseline justify-between">
+                    <h2 className="text-lg font-bold text-gray-900">Divisions</h2>
+                    <span className="text-xs text-gray-500">
+                      Expand a category to see registered teams
+                    </span>
+                  </div>
                   <DivisionsTable
                     divisions={activeDay.divisions}
                     tournamentSlug={tournament.slug}
                   />
-                </section>
-
-                {/* Registered Teams */}
-                <section>
-                  <h2 className="mb-3 text-lg font-bold text-gray-900">Registered Teams</h2>
-                  <RegisteredTeamsList day={activeDay} />
                 </section>
               </div>
             )}
