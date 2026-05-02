@@ -12,7 +12,8 @@
     "format:check": "prettier --check .",
     "preview": "vite preview",
     "prepare": "husky",
-    "db:migrate": "netlify database migrations apply"
+    "db:migrate": "netlify database migrations apply",
+    "db:seed": "node scripts/seed-dev.mjs"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

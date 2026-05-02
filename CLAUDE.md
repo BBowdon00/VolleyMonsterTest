@@ -83,9 +83,12 @@ Schema lives in `netlify/database/migrations/`. Netlify applies them automatical
 
 ```bash
 npm run db:migrate   # apply pending migrations to local dev DB only
+npm run db:seed      # populate local dev DB with fake teams/players (requires `netlify dev` running)
 ```
 
 To make a schema change: add a new file under `netlify/database/migrations/` with a timestamp prefix (e.g. `20260501000000_add-foo/migration.sql`), then run `npm run db:migrate` locally to test it.
+
+The seed script POSTs to `/api/seed-dev`, a function gated by `context.deploy.context !== 'production'` that reads `netlify/database/seed-dev.sql` and runs it via `db.pool`. Seed data is identified by `captain_email LIKE '%@test.vm'` and the script is idempotent.
 
 ## Key data model facts
 
