@@ -23,22 +23,33 @@ function countDivisions(tournament: TournamentSummary): number {
 export default function TournamentCard({ tournament }: TournamentCardProps) {
   const divisionCount = countDivisions(tournament)
   const dateLabel = formatDateRange(tournament.start_date, tournament.end_date)
+  const startDate = parseISO(tournament.start_date)
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
-      {/* Hero image or placeholder */}
-      {tournament.hero_image_url ? (
-        <img
-          src={tournament.hero_image_url}
-          alt={tournament.name}
-          className="aspect-[4/5] w-full bg-gray-50 object-contain"
-        />
-      ) : (
-        <div
-          className="aspect-[4/5] w-full bg-gradient-to-br from-teal-400 to-teal-600"
-          aria-hidden="true"
-        />
-      )}
+    <article className="group flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:border-teal-300 hover:shadow-xl">
+      <div className="relative">
+        {tournament.hero_image_url ? (
+          <img
+            src={tournament.hero_image_url}
+            alt={tournament.name}
+            className="aspect-[4/5] w-full bg-gray-50 object-contain"
+          />
+        ) : (
+          <div
+            className="aspect-[4/5] w-full bg-gradient-to-br from-teal-400 to-teal-600"
+            aria-hidden="true"
+          />
+        )}
+
+        <div className="absolute left-3 top-3 flex flex-col items-center rounded-lg bg-white/95 px-3 py-1.5 shadow-md ring-1 ring-black/5 backdrop-blur">
+          <span className="text-[0.65rem] font-bold uppercase tracking-widest text-flame-500">
+            {format(startDate, 'MMM')}
+          </span>
+          <span className="text-2xl font-black leading-none text-gray-900">
+            {format(startDate, 'd')}
+          </span>
+        </div>
+      </div>
 
       <div className="flex flex-1 flex-col p-5">
         <h3 className="text-lg font-bold text-gray-900">{tournament.name}</h3>
@@ -50,12 +61,13 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
               {[tournament.location_city, tournament.location_state].filter(Boolean).join(', ')}
             </p>
           )}
-          {divisionCount > 0 && (
-            <p>
-              {divisionCount} {divisionCount === 1 ? 'division' : 'divisions'}
-            </p>
-          )}
         </div>
+
+        {divisionCount > 0 && (
+          <span className="mt-3 inline-flex w-fit items-center rounded-full bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700 ring-1 ring-inset ring-teal-200">
+            {divisionCount} {divisionCount === 1 ? 'division' : 'divisions'}
+          </span>
+        )}
 
         <div className="mt-auto pt-5">
           <Link
