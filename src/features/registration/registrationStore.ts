@@ -9,8 +9,6 @@ export interface PlayerEntry {
   name: string
 }
 
-export type TeamNameStyle = 'last' | 'full'
-
 export interface DayEntry {
   tournamentDayId: string
   dayLabel: string | null
@@ -19,7 +17,6 @@ export interface DayEntry {
   feeCents: number
   teamSize: number
   teamName: string
-  nameStyle: TeamNameStyle
   players: PlayerEntry[]
 }
 

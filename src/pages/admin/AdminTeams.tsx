@@ -4,7 +4,6 @@ import { format, parseISO } from 'date-fns'
 import { listUpcomingTournaments } from '@/api/tournaments'
 import type { TournamentSummary, DivisionWithTeams } from '@/api/tournaments'
 import { autoTeamName } from '@/lib/teamName'
-import type { TeamNameStyle } from '@/features/registration/registrationStore'
 import { adminFetch, AdminUnauthorizedError } from '@/lib/admin'
 import { Button } from '@/components/ui/button'
 
@@ -240,15 +239,11 @@ function AddTeamForm({ tournamentSlug: _tournamentSlug, divisions, onAdded }: Ad
   const [captainEmail, setCaptainEmail] = useState('')
   const [captainPhone, setCaptainPhone] = useState('')
   const [players, setPlayers] = useState<string[]>(() => Array(initialSize).fill(''))
-  const [nameStyle, setNameStyle] = useState<TeamNameStyle>('full')
   const [error, setError] = useState<string | null>(null)
 
   const selectedDivision = divisions.find((d) => d.id === divisionId)
   const teamSize = selectedDivision?.team_size ?? 2
-  const computedName = autoTeamName(
-    players.map((p) => ({ name: p })),
-    nameStyle,
-  )
+  const computedName = autoTeamName(players.map((p) => ({ name: p })))
 
   function handleDivisionChange(newId: string) {
     setDivisionId(newId)
@@ -264,7 +259,6 @@ function AddTeamForm({ tournamentSlug: _tournamentSlug, divisions, onAdded }: Ad
       setCaptainEmail('')
       setCaptainPhone('')
       setPlayers(Array(teamSize).fill(''))
-      setNameStyle('full')
       setError(null)
       setOpen(false)
       onAdded()
@@ -370,40 +364,13 @@ function AddTeamForm({ tournamentSlug: _tournamentSlug, divisions, onAdded }: Ad
         </div>
       </div>
 
-      <div className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-2">
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-            Team name
-          </span>
-          <span className="truncate text-sm font-medium text-gray-900">
-            {computedName || <span className="italic text-gray-400">(derived from players)</span>}
-          </span>
-        </div>
-        <fieldset>
-          <legend className="sr-only">Team name style</legend>
-          <div className="flex gap-4 text-sm">
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="radio"
-                name="admin-name-style"
-                checked={nameStyle === 'last'}
-                onChange={() => setNameStyle('last')}
-                className="h-3.5 w-3.5 border-gray-300 text-teal-500 focus:ring-teal-400"
-              />
-              <span className="text-gray-700">Last names only</span>
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="radio"
-                name="admin-name-style"
-                checked={nameStyle === 'full'}
-                onChange={() => setNameStyle('full')}
-                className="h-3.5 w-3.5 border-gray-300 text-teal-500 focus:ring-teal-400"
-              />
-              <span className="text-gray-700">Full names</span>
-            </label>
-          </div>
-        </fieldset>
+      <div className="flex items-baseline justify-between gap-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Team name
+        </span>
+        <span className="truncate text-sm font-medium text-gray-900">
+          {computedName || <span className="italic text-gray-400">(derived from players)</span>}
+        </span>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

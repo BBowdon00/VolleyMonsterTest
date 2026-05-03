@@ -82,7 +82,6 @@ export default function StepDays({ tournament, initialDivisionId }: StepDaysProp
         feeCents: div.fee_cents,
         teamSize: div.team_size,
         teamName: existing?.teamName ?? '',
-        nameStyle: existing?.nameStyle ?? 'full',
         players:
           existing?.players ??
           Array.from({ length: div.team_size }, (_, i) => ({
