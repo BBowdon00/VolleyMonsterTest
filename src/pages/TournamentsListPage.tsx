@@ -40,7 +40,7 @@ export default function TournamentsListPage() {
       <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-black text-gray-900 sm:text-4xl">Upcoming Tournaments</h1>
-          <p className="mt-2 text-gray-500">Register now for beach volleyball this summer.</p>
+          <p className="mt-2 text-gray-500">Register now for grass volleyball this summer.</p>
         </div>
         <FilterBar />
       </div>

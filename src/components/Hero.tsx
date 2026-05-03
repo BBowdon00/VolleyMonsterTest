@@ -23,7 +23,7 @@ export default function Hero() {
 
       <div className="relative mx-auto max-w-6xl px-4 py-24 text-center sm:py-32">
         <span className="mb-6 inline-block rounded-full bg-teal-400/10 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.3em] text-teal-400 ring-1 ring-teal-400/30">
-          Outdoor Beach Volleyball
+          Outdoor Grass Volleyball
         </span>
 
         <h1 className="text-6xl font-black tracking-tight sm:text-8xl">

@@ -133,6 +133,17 @@ export default async (req: Request, _context: Context): Promise<Response> => {
     const teams: RegisterOrderResult['teams'] = []
 
     for (const entry of rpcTeams) {
+      // Reclaim any stale pending_payment slot the same captain abandoned earlier
+      // (cascades to players + registrations). Prevents team_name_taken on retry.
+      await client.query(
+        `DELETE FROM public.teams
+         WHERE division_id = $1::uuid
+           AND lower(name) = lower($2)
+           AND status = 'pending_payment'
+           AND lower(captain_email) = lower($3)`,
+        [entry.division_id, entry.name, captain.email],
+      )
+
       const teamRes = await client.query<{ id: string }>(
         `INSERT INTO public.teams (division_id, name, city, captain_name, captain_email, captain_phone, status)
          VALUES ($1, $2, $3, $4, $5, $6, 'pending_payment') RETURNING id`,

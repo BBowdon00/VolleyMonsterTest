@@ -14,6 +14,9 @@ const AboutPage = lazy(() => import('./pages/AboutPage'))
 const RulesPage = lazy(() => import('./pages/RulesPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 const DevPingPage = lazy(() => import('./pages/DevPingPage'))
+const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
+const AdminTeams = lazy(() => import('./pages/admin/AdminTeams'))
 
 const withSuspense = (element: React.ReactNode) => (
   <Suspense
@@ -41,6 +44,14 @@ export const router = createBrowserRouter([
       { path: 'rules', element: withSuspense(<RulesPage />) },
       { path: 'dev/ping', element: withSuspense(<DevPingPage />) },
       { path: '*', element: withSuspense(<NotFoundPage />) },
+    ],
+  },
+  {
+    path: '/admin',
+    element: withSuspense(<AdminLayout />),
+    children: [
+      { index: true, element: withSuspense(<AdminDashboard />) },
+      { path: 'teams', element: withSuspense(<AdminTeams />) },
     ],
   },
 ])

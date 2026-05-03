@@ -17,7 +17,7 @@ const valueProps = [
     icon: Sun,
     title: 'Olney, MD All Summer',
     description:
-      'Outdoor beach volleyball tournaments running all summer long right here in Olney, Maryland.',
+      'Outdoor grass volleyball tournaments running all summer long right here in Olney, Maryland.',
   },
 ]
 

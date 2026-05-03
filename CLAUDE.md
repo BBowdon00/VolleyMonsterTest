@@ -74,6 +74,7 @@ stripe listen --forward-to localhost:8888/api/stripe-webhook
 | `EMAIL_FROM`                  | `.env.local` / Netlify dashboard                        |                                                    |
 | `PUBLIC_SITE_URL`             | `.env.local` = `http://localhost:8888`                  | Set to production URL in Netlify dashboard         |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | `.env.local` / Netlify dashboard                        | `pk_test_...` locally                              |
+| `ADMIN_TOKEN`                 | `.env.local` / Netlify dashboard                        | Random secret. Required for `/admin` to be usable. |
 
 Netlify dashboard keys are scoped per context — production gets live Stripe keys, previews/branch deploys get test keys. See `netlify.toml` `[context.*]` sections.
 
@@ -88,7 +89,31 @@ npm run db:seed      # populate local dev DB with fake teams/players (requires `
 
 To make a schema change: add a new file under `netlify/database/migrations/` with a timestamp prefix (e.g. `20260501000000_add-foo/migration.sql`), then run `npm run db:migrate` locally to test it.
 
+When adding a new top-level route in `src/routes.tsx`, also add a corresponding `[[redirects]]` block in `netlify.toml` (e.g. `from = "/foo/*" → /index.html 200`). The SPA fallback is per-route — not a wildcard — so Vite's module paths (`/src/*`, `/@vite/*`) aren't hijacked in `netlify dev`.
+
 The seed script POSTs to `/api/seed-dev`, a function gated by `context.deploy.context !== 'production'` that reads `netlify/database/seed-dev.sql` and runs it via `db.pool`. Seed data is identified by `captain_email LIKE '%@test.vm'` and the script is idempotent.
+
+## Admin
+
+Token-gated admin UI at `/admin`. Token is set via the `ADMIN_TOKEN` env var; users enter it once per session at `/admin` and it's stored in `sessionStorage`.
+
+```
+src/pages/admin/             AdminLayout (auth gate + nav), AdminDashboard, AdminTeams, …
+src/components/admin/        AdminLogin, AdminNav
+src/lib/admin.ts             Token storage helpers + `adminFetch()` wrapper that sends `x-admin-token`
+netlify/functions/_lib/admin-auth.ts   `requireAdmin(req)` — returns 401/503 Response or null
+netlify/functions/admin-*.ts           Backend endpoints under `/api/admin/*`
+```
+
+To add a new admin feature:
+
+1. Add a new page under `src/pages/admin/`
+2. Add it to the `links` array in `src/components/admin/AdminNav.tsx`
+3. Register the route in `src/routes.tsx` under the `/admin` parent
+4. Add a backend function `netlify/functions/admin-<feature>.ts` calling `requireAdmin(req)` first
+5. Use `adminFetch()` from the page to call it
+
+Manually-added teams (admin) skip Stripe and are inserted with `status='confirmed'` directly.
 
 ## Key data model facts
 

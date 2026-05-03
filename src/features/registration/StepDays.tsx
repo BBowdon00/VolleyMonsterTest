@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { format, parseISO } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { useRegistration } from './registrationStore'
 import type { DayEntry } from './registrationStore'
@@ -121,7 +122,9 @@ export default function StepDays({ tournament, initialDivisionId }: StepDaysProp
                 />
                 <div className="flex-1 min-w-0">
                   <span className="block font-semibold text-gray-900">{day.label}</span>
-                  <span className="text-sm text-gray-500">{day.day_date}</span>
+                  <span className="text-sm text-gray-500">
+                    {format(parseISO(day.day_date), 'MM-dd-yyyy')}
+                  </span>
                 </div>
               </label>
 
