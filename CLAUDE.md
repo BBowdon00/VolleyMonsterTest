@@ -90,6 +90,16 @@ To make a schema change: add a new file under `netlify/database/migrations/` wit
 
 The seed script POSTs to `/api/seed-dev`, a function gated by `context.deploy.context !== 'production'` that reads `netlify/database/seed-dev.sql` and runs it via `db.pool`. Seed data is identified by `captain_email LIKE '%@test.vm'` and the script is idempotent.
 
+### Seeding a deploy preview
+
+Each Netlify deploy preview gets its own DB branch forked from production. To populate fixture data on a preview:
+
+```bash
+curl -X POST https://deploy-preview-N--volleymonster.netlify.app/api/seed-dev
+```
+
+Same idempotent seed, public endpoint (production is still blocked). Re-run anytime to reset the test data on that preview. The `seed-dev.sql` file is bundled with the deployed function via `[functions."seed-dev"] included_files` in `netlify.toml`.
+
 ## Key data model facts
 
 - `divisions.team_size` is a generated column derived from `divisions.format` (doubles→2, triples→3, quads→4, sixes→6). Never store or pass team size manually.
