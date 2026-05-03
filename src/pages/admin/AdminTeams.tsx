@@ -240,7 +240,7 @@ function AddTeamForm({ tournamentSlug: _tournamentSlug, divisions, onAdded }: Ad
   const [captainEmail, setCaptainEmail] = useState('')
   const [captainPhone, setCaptainPhone] = useState('')
   const [players, setPlayers] = useState<string[]>(() => Array(initialSize).fill(''))
-  const [nameStyle, setNameStyle] = useState<TeamNameStyle>('last')
+  const [nameStyle, setNameStyle] = useState<TeamNameStyle>('full')
   const [error, setError] = useState<string | null>(null)
 
   const selectedDivision = divisions.find((d) => d.id === divisionId)
@@ -264,7 +264,7 @@ function AddTeamForm({ tournamentSlug: _tournamentSlug, divisions, onAdded }: Ad
       setCaptainEmail('')
       setCaptainPhone('')
       setPlayers(Array(teamSize).fill(''))
-      setNameStyle('last')
+      setNameStyle('full')
       setError(null)
       setOpen(false)
       onAdded()

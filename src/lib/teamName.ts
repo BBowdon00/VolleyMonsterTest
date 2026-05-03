@@ -9,7 +9,7 @@ function getLastName(fullName: string): string {
   return parts.length > 1 ? (parts[parts.length - 1] ?? '') : (parts[0] ?? '')
 }
 
-export function autoTeamName(players: PlayerLike[], style: TeamNameStyle = 'last'): string {
+export function autoTeamName(players: PlayerLike[], style: TeamNameStyle = 'full'): string {
   const names = players
     .map((p) => (style === 'full' ? p.name.trim() : getLastName(p.name)))
     .filter(Boolean)

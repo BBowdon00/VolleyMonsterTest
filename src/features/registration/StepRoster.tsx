@@ -16,7 +16,7 @@ interface RosterDaySectionProps {
 function RosterDaySection({ entry, dayIndex, contactName, onChange }: RosterDaySectionProps) {
   const p0Name = entry.players[0]?.name ?? ''
   const [contactPlays, setContactPlays] = useState(p0Name === '' || p0Name === contactName)
-  const nameStyle = entry.nameStyle ?? 'last'
+  const nameStyle = entry.nameStyle ?? 'full'
 
   const slots: PlayerEntry[] = Array.from({ length: entry.teamSize }, (_, i) => ({
     name: entry.players[i]?.name ?? '',
