@@ -1,6 +1,6 @@
 # Volley Monster — Agent Reference
 
-Beach volleyball tournament registration app. Captains register teams, pay via Stripe Checkout, and manage their roster via a magic-link page.
+Outdoor grass volleyball tournament registration app. Captains register teams, pay via Stripe Checkout, and manage their roster via a magic-link page.
 
 ## Stack
 
@@ -34,19 +34,28 @@ netlify/
     manage-team-update-player.ts  POST /api/manage-team-update-player
     send-confirmation-email-background.ts  (triggered by webhook, 15-min timeout)
     cleanup-pending-teams.ts  (scheduled @hourly)
+    seed-dev.ts           POST /api/seed-dev  (dev-only — runs seed-dev.sql)
+    division-teams.ts     GET /api/division-teams?division_id=
     health.ts             GET /api/health
+    _lib/admin-auth.ts    requireAdmin(req) — checks x-admin-token
+    admin-teams.ts        GET/POST/DELETE /api/admin/teams
   edge-functions/
     rate-limit.ts     # Rate-limits POST /api/create-checkout-session (10 req/min)
   database/
     migrations/       # Applied automatically on Netlify deploy
+    seed-dev.sql      # Local fixture seed run by /api/seed-dev
 src/
   api/tournaments.ts  # Zod schemas + fetch wrappers + TanStack Query hooks
   features/
     registration/     # Multi-step registration flow (StepDays → StepCaptain → StepRoster → StepReview)
     manage/           # EditableRoster used by ManageTeamPage
   pages/
+    admin/            # AdminLayout, AdminDashboard, AdminTeams (token-gated)
   components/
+    admin/            # AdminLogin, AdminNav
   lib/
+    admin.ts          # Admin token storage + adminFetch() wrapper
+    teamName.ts       # autoTeamName(players) — derives team name from full player names
     schemas/registration.ts  # Zod schema shared by frontend and checkout function
 ```
 
@@ -91,7 +100,7 @@ To make a schema change: add a new file under `netlify/database/migrations/` wit
 
 When adding a new top-level route in `src/routes.tsx`, also add a corresponding `[[redirects]]` block in `netlify.toml` (e.g. `from = "/foo/*" → /index.html 200`). The SPA fallback is per-route — not a wildcard — so Vite's module paths (`/src/*`, `/@vite/*`) aren't hijacked in `netlify dev`.
 
-The seed script POSTs to `/api/seed-dev`, a function gated by `context.deploy.context !== 'production'` that reads `netlify/database/seed-dev.sql` and runs it via `db.pool`. Seed data is identified by `captain_email LIKE '%@test.vm'` and the script is idempotent.
+The seed script POSTs to `/api/seed-dev`, a function gated by `context.deploy.context !== 'dev'` (local-only — returns 403 on production / deploy-preview / branch-deploy). It reads `netlify/database/seed-dev.sql` and runs it via `db.pool`. Seed data is identified by `captain_email LIKE '%@test.vm'` and the script is idempotent.
 
 ## Admin
 
@@ -119,15 +128,17 @@ Manually-added teams (admin) skip Stripe and are inserted with `status='confirme
 
 - `divisions.team_size` is a generated column derived from `divisions.format` (doubles→2, triples→3, quads→4, sixes→6). Never store or pass team size manually.
 - Teams go through: `pending_payment` → `confirmed` (or `waitlisted` / `cancelled`). The `cleanup-pending-teams` scheduled function cancels stale `pending_payment` teams after 24 hours.
+- `teams.name` is **always derived** from full player names joined with `/` — there's no manual team-name input on either the public registration flow or the admin add-team form. Use `autoTeamName(players)` from `src/lib/teamName.ts`. The DB still has `UNIQUE (division_id, name)`; if two teams happen to derive the same name, the second insert returns `team_name_taken` and the captain has to disambiguate (e.g. include a middle initial).
+- `create-checkout-session.ts` reclaims any stale `pending_payment` row matching `(division, lower(name), lower(captain_email))` before insert, so retries by the same captain don't trip the unique constraint.
 - Roster management uses a UUID token (the `team_id`) as a magic link — no auth.
 
 ## CI / Deploy pipeline
 
-| Environment    | Trigger         | Stripe                                                            |
-| -------------- | --------------- | ----------------------------------------------------------------- |
-| Local          | `netlify dev`   | Test keys from `.env.local`                                       |
-| Deploy preview | Any branch push | Test keys (set in Netlify dashboard for `deploy-preview` context) |
-| Production     | Merge to `main` | Live keys (set in Netlify dashboard for `production` context)     |
+| Environment    | Trigger             | Stripe                                                            |
+| -------------- | ------------------- | ----------------------------------------------------------------- |
+| Local          | `netlify dev`       | Test keys from `.env.local`                                       |
+| Deploy preview | PR against `master` | Test keys (set in Netlify dashboard for `deploy-preview` context) |
+| Production     | Merge to `master`   | Live keys (set in Netlify dashboard for `production` context)     |
 
 GitHub Actions (`.github/workflows/ci.yml`) runs typecheck → lint → build on every push.
 
