@@ -2,18 +2,9 @@ import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { autoTeamName } from '@/lib/teamName'
 import { useRegistration } from './registrationStore'
-import type { DayEntry, PlayerEntry } from './registrationStore'
-
-function getLastName(fullName: string): string {
-  const parts = fullName.trim().split(/\s+/)
-  return parts.length > 1 ? (parts[parts.length - 1] ?? '') : (parts[0] ?? '')
-}
-
-function autoTeamName(players: PlayerEntry[]): string {
-  const names = players.map((p) => getLastName(p.name)).filter(Boolean)
-  return names.join(' / ')
-}
+import type { DayEntry, PlayerEntry, TeamNameStyle } from './registrationStore'
 
 interface RosterDaySectionProps {
   entry: DayEntry
@@ -25,6 +16,7 @@ interface RosterDaySectionProps {
 function RosterDaySection({ entry, dayIndex, contactName, onChange }: RosterDaySectionProps) {
   const p0Name = entry.players[0]?.name ?? ''
   const [contactPlays, setContactPlays] = useState(p0Name === '' || p0Name === contactName)
+  const nameStyle = entry.nameStyle ?? 'last'
 
   const slots: PlayerEntry[] = Array.from({ length: entry.teamSize }, (_, i) => ({
     name: entry.players[i]?.name ?? '',
@@ -35,7 +27,7 @@ function RosterDaySection({ entry, dayIndex, contactName, onChange }: RosterDayS
   useEffect(() => {
     if (contactPlays && contactName && (entry.players[0]?.name ?? '') !== contactName) {
       const synced = slots.map((p, i) => (i === 0 ? { name: contactName } : p))
-      onChange({ players: synced, teamName: autoTeamName(synced) })
+      onChange({ players: synced, teamName: autoTeamName(synced, nameStyle) })
     }
     // Intentionally only on mount — corrects an initialization gap
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -44,14 +36,19 @@ function RosterDaySection({ entry, dayIndex, contactName, onChange }: RosterDayS
   function updatePlayer(index: number, name: string) {
     const updated = slots.map((p, i) => (i === index ? { name } : p))
     const effective = updated.map((p, i) => (i === 0 && contactPlays ? { name: contactName } : p))
-    onChange({ players: effective, teamName: autoTeamName(effective) })
+    onChange({ players: effective, teamName: autoTeamName(effective, nameStyle) })
   }
 
   function handleContactPlaysToggle() {
     const next = !contactPlays
     setContactPlays(next)
     const updated = slots.map((p, i) => (i === 0 ? { name: next ? contactName : '' } : p))
-    onChange({ players: updated, teamName: autoTeamName(updated) })
+    onChange({ players: updated, teamName: autoTeamName(updated, nameStyle) })
+  }
+
+  function handleNameStyleChange(style: TeamNameStyle) {
+    const effective = slots.map((p, i) => (i === 0 && contactPlays ? { name: contactName } : p))
+    onChange({ nameStyle: style, teamName: autoTeamName(effective, style) })
   }
 
   const displayPlayers = slots.map((p, i) => (i === 0 && contactPlays ? { name: contactName } : p))
@@ -98,6 +95,45 @@ function RosterDaySection({ entry, dayIndex, contactName, onChange }: RosterDayS
             />
           </div>
         ))}
+      </div>
+
+      {/* Team name display style */}
+      <div className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-2">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Team name
+          </span>
+          <span className="truncate text-sm font-medium text-gray-900">
+            {autoTeamName(displayPlayers, nameStyle) || (
+              <span className="italic text-gray-400">(auto from players)</span>
+            )}
+          </span>
+        </div>
+        <fieldset>
+          <legend className="sr-only">Team name style</legend>
+          <div className="flex gap-4 text-sm">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="radio"
+                name={`name-style-${entry.tournamentDayId}`}
+                checked={nameStyle === 'last'}
+                onChange={() => handleNameStyleChange('last')}
+                className="h-3.5 w-3.5 border-gray-300 text-teal-500 focus:ring-teal-400"
+              />
+              <span className="text-gray-700">Last names only</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="radio"
+                name={`name-style-${entry.tournamentDayId}`}
+                checked={nameStyle === 'full'}
+                onChange={() => handleNameStyleChange('full')}
+                className="h-3.5 w-3.5 border-gray-300 text-teal-500 focus:ring-teal-400"
+              />
+              <span className="text-gray-700">Full names</span>
+            </label>
+          </div>
+        </fieldset>
       </div>
     </div>
   )
