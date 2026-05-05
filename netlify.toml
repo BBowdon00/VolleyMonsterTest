@@ -52,6 +52,14 @@
   from = "/admin/*"
   to = "/index.html"
   status = 200
+[[redirects]]
+  from = "/season-pass"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/season-pass/*"
+  to = "/index.html"
+  status = 200
 
 [[headers]]
   for = "/*"

@@ -12,11 +12,14 @@ const RegistrationCancelledPage = lazy(() => import('./pages/RegistrationCancell
 const ManageTeamPage = lazy(() => import('./pages/ManageTeamPage'))
 const AboutPage = lazy(() => import('./pages/AboutPage'))
 const RulesPage = lazy(() => import('./pages/RulesPage'))
+const SeasonPassPage = lazy(() => import('./pages/SeasonPassPage'))
+const SeasonPassSuccessPage = lazy(() => import('./pages/SeasonPassSuccessPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 const DevPingPage = lazy(() => import('./pages/DevPingPage'))
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
 const AdminTeams = lazy(() => import('./pages/admin/AdminTeams'))
+const AdminSeasonPasses = lazy(() => import('./pages/admin/AdminSeasonPasses'))
 
 const withSuspense = (element: React.ReactNode) => (
   <Suspense
@@ -42,6 +45,8 @@ export const router = createBrowserRouter([
       { path: 'manage/:token', element: withSuspense(<ManageTeamPage />) },
       { path: 'about', element: withSuspense(<AboutPage />) },
       { path: 'rules', element: withSuspense(<RulesPage />) },
+      { path: 'season-pass', element: withSuspense(<SeasonPassPage />) },
+      { path: 'season-pass/success', element: withSuspense(<SeasonPassSuccessPage />) },
       { path: 'dev/ping', element: withSuspense(<DevPingPage />) },
       { path: '*', element: withSuspense(<NotFoundPage />) },
     ],
@@ -52,6 +57,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: withSuspense(<AdminDashboard />) },
       { path: 'teams', element: withSuspense(<AdminTeams />) },
+      { path: 'season-passes', element: withSuspense(<AdminSeasonPasses />) },
     ],
   },
 ])

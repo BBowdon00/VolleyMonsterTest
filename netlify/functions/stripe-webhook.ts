@@ -37,13 +37,11 @@ export default async (req: Request, context: Context): Promise<Response> => {
         await handleChargeRefunded(event)
         break
       default:
-        // Unknown event — acknowledge and ignore
         break
     }
     await db.sql`INSERT INTO processed_webhooks (event_id, event_type, processed_at) VALUES (${event.id}, ${event.type}, NOW())`
   } catch (err) {
     console.error(`Error processing Stripe event ${event.id} (${event.type}):`, err)
-    // Still return 200 to prevent Stripe from retrying for logic errors
   }
 
   return Response.json({ received: true })
@@ -54,6 +52,13 @@ export default async (req: Request, context: Context): Promise<Response> => {
 async function handleCheckoutCompleted(event: Stripe.Event, context: Context) {
   const session = event.data.object as Stripe.Checkout.Session
 
+  // Season pass purchase
+  if (session.metadata?.type === 'season_pass') {
+    await handleSeasonPassCompleted(session, context)
+    return
+  }
+
+  // Registration order
   const orders =
     await db.sql`SELECT id FROM registration_orders WHERE stripe_checkout_session_id = ${session.id} LIMIT 1`
   const order = orders[0] as { id: string } | undefined
@@ -99,8 +104,40 @@ async function handleCheckoutCompleted(event: Stripe.Event, context: Context) {
   }
 }
 
+async function handleSeasonPassCompleted(session: Stripe.Checkout.Session, context: Context) {
+  const passId = session.metadata?.pass_id
+  if (!passId) {
+    console.error('Season pass checkout missing pass_id in metadata', session.id)
+    return
+  }
+
+  await db.sql`UPDATE season_passes SET status = 'active' WHERE id = ${passId}::uuid`
+
+  const siteUrl = process.env.PUBLIC_SITE_URL
+  if (siteUrl) {
+    context.waitUntil(
+      fetch(`${siteUrl}/api/send-season-pass-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pass_id: passId }),
+      }).catch((err) => console.error('Season pass email trigger failed:', err)),
+    )
+  }
+}
+
 async function handleCheckoutExpired(event: Stripe.Event) {
   const session = event.data.object as Stripe.Checkout.Session
+
+  // Cancel expired season pass purchases
+  const passRows =
+    await db.sql`SELECT id FROM season_passes WHERE stripe_checkout_session_id = ${session.id} LIMIT 1`
+  if (passRows.length > 0) {
+    const pass = passRows[0] as { id: string }
+    await db.sql`UPDATE season_passes SET status = 'cancelled' WHERE id = ${pass.id}`
+    return
+  }
+
+  // Expire registration orders
   const orders =
     await db.sql`SELECT id FROM registration_orders WHERE stripe_checkout_session_id = ${session.id} LIMIT 1`
   const order = orders[0] as { id: string } | undefined
@@ -109,7 +146,6 @@ async function handleCheckoutExpired(event: Stripe.Event) {
     return
   }
   await db.sql`UPDATE registration_orders SET status = 'failed' WHERE id = ${order.id}`
-  // Teams remain 'pending_payment' so the captain can retry
 }
 
 async function handleChargeRefunded(event: Stripe.Event) {

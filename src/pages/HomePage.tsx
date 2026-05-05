@@ -1,6 +1,7 @@
 import Hero from '@/components/Hero'
 import UpcomingTournamentsGrid from '@/components/UpcomingTournamentsGrid'
 import ValuePropsSection from '@/components/ValuePropsSection'
+import SeasonPassBanner from '@/components/SeasonPassBanner'
 
 export default function HomePage() {
   return (
@@ -8,6 +9,8 @@ export default function HomePage() {
       <Hero />
 
       <ValuePropsSection />
+
+      <SeasonPassBanner />
 
       <section id="upcoming-tournaments" className="py-16">
         <div className="mx-auto max-w-6xl px-4">

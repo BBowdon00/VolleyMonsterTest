@@ -6,6 +6,13 @@ import { autoTeamName } from '@/lib/teamName'
 import { useRegistration } from './registrationStore'
 import type { DayEntry, PlayerEntry } from './registrationStore'
 
+type CodeValidity = 'idle' | 'checking' | 'valid' | 'invalid'
+
+interface PlayerCodeState {
+  validity: CodeValidity
+  holderName: string | null
+}
+
 interface RosterDaySectionProps {
   entry: DayEntry
   dayIndex: number
@@ -16,36 +23,84 @@ interface RosterDaySectionProps {
 function RosterDaySection({ entry, dayIndex, contactName, onChange }: RosterDaySectionProps) {
   const p0Name = entry.players[0]?.name ?? ''
   const [contactPlays, setContactPlays] = useState(p0Name === '' || p0Name === contactName)
+  const [codeStates, setCodeStates] = useState<PlayerCodeState[]>(() =>
+    Array.from({ length: entry.teamSize }, () => ({
+      validity: 'idle' as CodeValidity,
+      holderName: null,
+    })),
+  )
 
   const slots: PlayerEntry[] = Array.from({ length: entry.teamSize }, (_, i) => ({
     name: entry.players[i]?.name ?? '',
+    passCode: entry.players[i]?.passCode ?? '',
   }))
 
-  // Sync store on mount: if contactPlays is on but player 0 in the store is still empty,
-  // write the contact name now so canProceed() sees a real value.
+  // Sync store on mount
   useEffect(() => {
     if (contactPlays && contactName && (entry.players[0]?.name ?? '') !== contactName) {
-      const synced = slots.map((p, i) => (i === 0 ? { name: contactName } : p))
+      const synced = slots.map((p, i) => (i === 0 ? { ...p, name: contactName } : p))
       onChange({ players: synced, teamName: autoTeamName(synced) })
     }
-    // Intentionally only on mount — corrects an initialization gap
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function updatePlayer(index: number, name: string) {
-    const updated = slots.map((p, i) => (i === index ? { name } : p))
-    const effective = updated.map((p, i) => (i === 0 && contactPlays ? { name: contactName } : p))
+    const updated = slots.map((p, i) => (i === index ? { ...p, name } : p))
+    const effective = updated.map((p, i) =>
+      i === 0 && contactPlays ? { ...p, name: contactName } : p,
+    )
     onChange({ players: effective, teamName: autoTeamName(effective) })
+  }
+
+  function updatePassCode(index: number, code: string) {
+    const updated = slots.map((p, i) => (i === index ? { ...p, passCode: code } : p))
+    onChange({ players: updated })
+    // Reset validity when code changes
+    setCodeStates((prev) =>
+      prev.map((s, i) => (i === index ? { validity: 'idle', holderName: null } : s)),
+    )
+  }
+
+  async function validateCode(index: number) {
+    const code = slots[index]?.passCode?.trim()
+    if (!code) {
+      setCodeStates((prev) =>
+        prev.map((s, i) => (i === index ? { validity: 'idle', holderName: null } : s)),
+      )
+      return
+    }
+    setCodeStates((prev) =>
+      prev.map((s, i) => (i === index ? { validity: 'checking', holderName: null } : s)),
+    )
+    try {
+      const res = await fetch(`/api/validate-pass-code?code=${encodeURIComponent(code)}`)
+      if (res.ok) {
+        const data = (await res.json()) as { valid: boolean; holder_name?: string | null }
+        setCodeStates((prev) =>
+          prev.map((s, i) =>
+            i === index
+              ? { validity: data.valid ? 'valid' : 'invalid', holderName: data.holder_name ?? null }
+              : s,
+          ),
+        )
+      }
+    } catch {
+      setCodeStates((prev) =>
+        prev.map((s, i) => (i === index ? { validity: 'idle', holderName: null } : s)),
+      )
+    }
   }
 
   function handleContactPlaysToggle() {
     const next = !contactPlays
     setContactPlays(next)
-    const updated = slots.map((p, i) => (i === 0 ? { name: next ? contactName : '' } : p))
+    const updated = slots.map((p, i) => (i === 0 ? { ...p, name: next ? contactName : '' } : p))
     onChange({ players: updated, teamName: autoTeamName(updated) })
   }
 
-  const displayPlayers = slots.map((p, i) => (i === 0 && contactPlays ? { name: contactName } : p))
+  const displayPlayers = slots.map((p, i) =>
+    i === 0 && contactPlays ? { ...p, name: contactName } : p,
+  )
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-4">
@@ -57,7 +112,6 @@ function RosterDaySection({ entry, dayIndex, contactName, onChange }: RosterDayS
         </span>
       </h3>
 
-      {/* "I'm playing" toggle */}
       <label className="flex items-center gap-2 cursor-pointer select-none">
         <input
           type="checkbox"
@@ -70,25 +124,49 @@ function RosterDaySection({ entry, dayIndex, contactName, onChange }: RosterDayS
         </span>
       </label>
 
-      {/* Player slots */}
-      <div className="space-y-3">
-        {displayPlayers.map((player, pIdx) => (
-          <div key={pIdx}>
-            <Label htmlFor={`player-${entry.tournamentDayId}-${pIdx}`}>
-              Player {pIdx + 1}
-              {pIdx === 0 && contactPlays ? ' (You)' : ''}
-            </Label>
-            <Input
-              id={`player-${entry.tournamentDayId}-${pIdx}`}
-              type="text"
-              value={player.name}
-              disabled={pIdx === 0 && contactPlays}
-              onChange={(e) => updatePlayer(pIdx, e.target.value)}
-              placeholder={`Player ${pIdx + 1} name`}
-              className="mt-1"
-            />
-          </div>
-        ))}
+      <div className="space-y-4">
+        {displayPlayers.map((player, pIdx) => {
+          const cs = codeStates[pIdx] ?? { validity: 'idle' as CodeValidity, holderName: null }
+          return (
+            <div key={pIdx} className="space-y-1.5">
+              <Label htmlFor={`player-${entry.tournamentDayId}-${pIdx}`}>
+                Player {pIdx + 1}
+                {pIdx === 0 && contactPlays ? ' (You)' : ''}
+              </Label>
+              <Input
+                id={`player-${entry.tournamentDayId}-${pIdx}`}
+                type="text"
+                value={player.name}
+                disabled={pIdx === 0 && contactPlays}
+                onChange={(e) => updatePlayer(pIdx, e.target.value)}
+                placeholder={`Player ${pIdx + 1} name`}
+              />
+              {/* Season pass code */}
+              <div className="flex items-center gap-2">
+                <Input
+                  type="text"
+                  value={player.passCode ?? ''}
+                  onChange={(e) => updatePassCode(pIdx, e.target.value)}
+                  onBlur={() => validateCode(pIdx)}
+                  placeholder="Season pass code (optional)"
+                  className="text-sm font-mono"
+                  aria-label={`Season pass code for player ${pIdx + 1}`}
+                />
+                {cs.validity === 'checking' && (
+                  <span className="shrink-0 text-xs text-gray-400">checking…</span>
+                )}
+                {cs.validity === 'valid' && (
+                  <span className="shrink-0 text-xs font-semibold text-teal-600">
+                    ✓{cs.holderName ? ` ${cs.holderName.split(' ')[0]}` : ' Valid'}
+                  </span>
+                )}
+                {cs.validity === 'invalid' && (
+                  <span className="shrink-0 text-xs font-semibold text-red-500">✗ Invalid</span>
+                )}
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       <div className="flex items-baseline justify-between gap-3 rounded-md border border-gray-200 bg-gray-50 p-3">
@@ -125,7 +203,18 @@ export default function StepRoster() {
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold text-gray-900">Roster</h2>
-        <p className="mt-1 text-sm text-gray-500">Enter the players for each day.</p>
+        <p className="mt-1 text-sm text-gray-500">
+          Enter players for each day. If any player has a{' '}
+          <a
+            href="/season-pass"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-teal-600 underline hover:text-teal-700"
+          >
+            season pass
+          </a>
+          , enter their code below their name.
+        </p>
       </div>
 
       <div className="space-y-4">

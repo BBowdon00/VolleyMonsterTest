@@ -79,6 +79,7 @@ export default function StepDays({ tournament, initialDivisionId }: StepDaysProp
         dayLabel: day.label,
         divisionId: divId,
         divisionDisplayName: div.display_name,
+        skillLevel: div.skill_level,
         feeCents: div.fee_cents,
         teamSize: div.team_size,
         teamName: existing?.teamName ?? '',

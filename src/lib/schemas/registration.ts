@@ -24,6 +24,7 @@ export type Captain = z.infer<typeof captainSchema>
 
 export const playerSchema = z.object({
   name: z.string().trim().min(1, 'Player name is required'),
+  passCode: z.string().trim().optional(),
 })
 
 export type Player = z.infer<typeof playerSchema>

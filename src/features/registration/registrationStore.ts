@@ -7,6 +7,7 @@ export type RegistrationStep = 'days' | 'captain' | 'roster' | 'review'
 
 export interface PlayerEntry {
   name: string
+  passCode?: string
 }
 
 export interface DayEntry {
@@ -14,6 +15,7 @@ export interface DayEntry {
   dayLabel: string | null
   divisionId: string
   divisionDisplayName: string
+  skillLevel: string
   feeCents: number
   teamSize: number
   teamName: string

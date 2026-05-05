@@ -4,6 +4,7 @@ import { clearAdminToken } from '@/lib/admin'
 const links = [
   { to: '/admin', end: true, label: 'Dashboard' },
   { to: '/admin/teams', end: false, label: 'Teams' },
+  { to: '/admin/season-passes', end: false, label: 'Season Passes' },
 ]
 
 interface AdminNavProps {

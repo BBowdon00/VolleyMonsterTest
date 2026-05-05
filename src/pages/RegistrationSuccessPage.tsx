@@ -15,14 +15,32 @@ const POLL_INTERVAL_MS = 2000
 export default function RegistrationSuccessPage() {
   const [searchParams] = useSearchParams()
   const sessionId = searchParams.get('session_id')
+  const orderId = searchParams.get('order_id')
 
-  // If there's no session_id, immediately show not_found; no polling needed.
-  const [pollStatus, setPollStatus] = useState<PollStatus>(sessionId ? 'polling' : 'not_found')
+  const hasParam = Boolean(sessionId || orderId)
+  const [pollStatus, setPollStatus] = useState<PollStatus>(hasParam ? 'polling' : 'not_found')
   const [captainEmail, setCaptainEmail] = useState<string | null>(null)
   const attemptsRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    // Free order: single fetch, already confirmed
+    if (orderId && !sessionId) {
+      fetch(`/api/confirm-registration?order_id=${encodeURIComponent(orderId)}`)
+        .then((res) => (res.ok ? (res.json() as Promise<ConfirmResponse>) : null))
+        .then((data) => {
+          if (data?.status === 'paid') {
+            setCaptainEmail(data.captain_email)
+            setPollStatus('paid')
+          } else {
+            setPollStatus('not_found')
+          }
+        })
+        .catch(() => setPollStatus('not_found'))
+      return
+    }
+
+    // Stripe order: poll until confirmed
     if (!sessionId) return
 
     let cancelled = false
@@ -61,11 +79,9 @@ export default function RegistrationSuccessPage() {
         return
       }
 
-      // Schedule next poll
       timerRef.current = setTimeout(poll, POLL_INTERVAL_MS)
     }
 
-    // Start first poll after initial delay
     timerRef.current = setTimeout(poll, POLL_INTERVAL_MS)
 
     return () => {
@@ -74,7 +90,7 @@ export default function RegistrationSuccessPage() {
         clearTimeout(timerRef.current)
       }
     }
-  }, [sessionId])
+  }, [sessionId, orderId])
 
   if (pollStatus === 'polling') {
     return (
@@ -125,7 +141,6 @@ export default function RegistrationSuccessPage() {
     )
   }
 
-  // not_found
   return (
     <div className="mx-auto max-w-xl px-4 py-16 text-center">
       <h1 className="text-3xl font-black text-gray-900">Registration not found</h1>

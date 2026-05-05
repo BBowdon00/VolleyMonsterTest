@@ -16,7 +16,10 @@ interface RegisterOrderResult {
 interface RpcTeamEntry {
   division_id: string
   name: string
-  fee_cents: number
+  original_fee_cents: number
+  adjusted_fee_cents: number
+  discount_cents: number
+  pass_codes: string[]
   players: Array<{
     name: string
     shirt_size: string | null
@@ -29,7 +32,7 @@ interface RpcTeamEntry {
 // Handler
 // ---------------------------------------------------------------------------
 
-export default async (req: Request, _context: Context): Promise<Response> => {
+export default async (req: Request, context: Context): Promise<Response> => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
 
   // 1. Validate body
@@ -50,7 +53,7 @@ export default async (req: Request, _context: Context): Promise<Response> => {
 
   const { captain, dayEntries } = parsed.data
 
-  // 2. Look up divisions (with their day and tournament) to get prices/labels
+  // 2. Look up divisions
   const divisionIds = dayEntries.map((e) => e.divisionId)
 
   const divRows = await db.sql`
@@ -73,13 +76,40 @@ export default async (req: Request, _context: Context): Promise<Response> => {
     )
   }
 
-  // Build a map for quick access
   const divisionMap = new Map<string, Record<string, unknown>>()
   for (const row of divRows as Record<string, unknown>[]) {
     divisionMap.set(row['id'] as string, row)
   }
 
-  // 3. Build RPC payload and compute total
+  // 3. Validate pass codes
+  const allSubmittedCodes = dayEntries.flatMap((entry) =>
+    entry.players
+      .map((p) => p.passCode?.trim().toUpperCase())
+      .filter((c): c is string => Boolean(c)),
+  )
+  const uniqueSubmittedCodes = [...new Set(allSubmittedCodes)]
+
+  const validPassMap = new Map<string, string>() // upper(code) -> pass_id
+
+  if (uniqueSubmittedCodes.length > 0) {
+    const validPasses = await db.sql`
+      SELECT id, upper(code) AS code
+      FROM season_passes
+      WHERE upper(code) = ANY(${uniqueSubmittedCodes}::text[])
+        AND status = 'active'
+        AND year = 2026
+    `
+    for (const p of validPasses as { id: string; code: string }[]) {
+      validPassMap.set(p.code, p.id)
+    }
+
+    const invalidCodes = uniqueSubmittedCodes.filter((c) => !validPassMap.has(c))
+    if (invalidCodes.length > 0) {
+      return Response.json({ error: 'invalid_pass_codes', codes: invalidCodes }, { status: 400 })
+    }
+  }
+
+  // 4. Build team entries and compute totals with discounts
   const rpcTeams: RpcTeamEntry[] = []
   let totalCents = 0
 
@@ -92,7 +122,6 @@ export default async (req: Request, _context: Context): Promise<Response> => {
       )
     }
 
-    // Enforce exact team size required by the division's format
     if (entry.players.length !== division['team_size']) {
       return Response.json(
         {
@@ -103,12 +132,33 @@ export default async (req: Request, _context: Context): Promise<Response> => {
       )
     }
 
-    totalCents += division['fee_cents'] as number
+    const feeCents = division['fee_cents'] as number
+    const teamSize = division['team_size'] as number
+    const isOpen = division['skill_level'] === 'Open'
+
+    // Deduplicate codes within this team; passes don't apply to Open division
+    const teamCodes = isOpen
+      ? []
+      : [
+          ...new Set(
+            entry.players
+              .map((p) => p.passCode?.trim().toUpperCase())
+              .filter((c): c is string => Boolean(c) && validPassMap.has(c)),
+          ),
+        ]
+
+    const discountCents = Math.min(Math.floor((feeCents * teamCodes.length) / teamSize), feeCents)
+    const adjustedFee = feeCents - discountCents
+
+    totalCents += adjustedFee
 
     rpcTeams.push({
       division_id: entry.divisionId,
       name: entry.teamName,
-      fee_cents: division['fee_cents'] as number,
+      original_fee_cents: feeCents,
+      adjusted_fee_cents: adjustedFee,
+      discount_cents: discountCents,
+      pass_codes: teamCodes,
       players: entry.players.map((p, idx) => ({
         name: p.name,
         shirt_size: null,
@@ -118,7 +168,7 @@ export default async (req: Request, _context: Context): Promise<Response> => {
     })
   }
 
-  // 4. Transactional order creation
+  // 5. Transactional order + team creation
   let orderResult: RegisterOrderResult
   const client = await db.pool.connect()
   try {
@@ -133,8 +183,6 @@ export default async (req: Request, _context: Context): Promise<Response> => {
     const teams: RegisterOrderResult['teams'] = []
 
     for (const entry of rpcTeams) {
-      // Reclaim any stale pending_payment slot the same captain abandoned earlier
-      // (cascades to players + registrations). Prevents team_name_taken on retry.
       await client.query(
         `DELETE FROM public.teams
          WHERE division_id = $1::uuid
@@ -168,8 +216,22 @@ export default async (req: Request, _context: Context): Promise<Response> => {
 
       await client.query(
         `INSERT INTO public.registrations (order_id, team_id, amount_cents) VALUES ($1, $2, $3)`,
-        [orderId, teamId, entry.fee_cents],
+        [orderId, teamId, entry.adjusted_fee_cents],
       )
+
+      // Record season pass uses for this team
+      if (entry.pass_codes.length > 0) {
+        const perPassDiscount = Math.floor(
+          entry.original_fee_cents / (divisionMap.get(entry.division_id)!['team_size'] as number),
+        )
+        for (const code of entry.pass_codes) {
+          const passId = validPassMap.get(code)!
+          await client.query(
+            `INSERT INTO public.season_pass_uses (pass_id, team_id, discount_cents) VALUES ($1::uuid, $2::uuid, $3)`,
+            [passId, teamId, perPassDiscount],
+          )
+        }
+      }
 
       teams.push({ team_id: teamId, division_id: entry.division_id })
     }
@@ -193,7 +255,32 @@ export default async (req: Request, _context: Context): Promise<Response> => {
 
   const orderId = orderResult.order_id
 
-  // 5. Build Stripe line items
+  // 6. Free order: confirm immediately, no Stripe needed
+  if (totalCents === 0) {
+    try {
+      await db.sql`UPDATE registration_orders SET status = 'paid', paid_at = NOW() WHERE id = ${orderId}`
+      const teamIds = orderResult.teams.map((t) => t.team_id)
+      await db.sql`UPDATE teams SET status = 'confirmed' WHERE id = ANY(${teamIds}::uuid[])`
+    } catch (err) {
+      console.error('[create-checkout-session] free order confirm error', err)
+      return Response.json({ error: 'internal' }, { status: 500 })
+    }
+
+    const siteUrl = process.env.PUBLIC_SITE_URL ?? ''
+    if (siteUrl) {
+      context.waitUntil(
+        fetch(`${siteUrl}/api/send-confirmation-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order_id: orderId }),
+        }).catch((err) => console.error('Email trigger failed:', err)),
+      )
+    }
+
+    return Response.json({ free: true, order_id: orderId })
+  }
+
+  // 7. Build Stripe line items (exclude $0 items — Stripe requires positive unit_amount)
   const siteUrl = process.env.PUBLIC_SITE_URL ?? ''
 
   const lineItems: Array<{
@@ -203,25 +290,28 @@ export default async (req: Request, _context: Context): Promise<Response> => {
       product_data: { name: string }
     }
     quantity: number
-  }> = dayEntries.map((entry) => {
-    const division = divisionMap.get(entry.divisionId)!
-    const tournamentName = division['tournament_name'] as string
-    const dayLabel = (division['day_label'] as string | null) ?? (division['day_date'] as string)
-    const divisionName = division['display_name'] as string
+  }> = rpcTeams
+    .filter((entry) => entry.adjusted_fee_cents > 0)
+    .map((entry) => {
+      const division = divisionMap.get(entry.division_id)!
+      const tournamentName = division['tournament_name'] as string
+      const dayLabel = (division['day_label'] as string | null) ?? (division['day_date'] as string)
+      const divisionName = division['display_name'] as string
+      const discountNote = entry.discount_cents > 0 ? ' (season pass applied)' : ''
 
-    return {
-      price_data: {
-        currency: 'usd',
-        unit_amount: division['fee_cents'] as number,
-        product_data: {
-          name: `${tournamentName} — ${dayLabel} — ${divisionName}`,
+      return {
+        price_data: {
+          currency: 'usd',
+          unit_amount: entry.adjusted_fee_cents,
+          product_data: {
+            name: `${tournamentName} — ${dayLabel} — ${divisionName}${discountNote}`,
+          },
         },
-      },
-      quantity: 1,
-    }
-  })
+        quantity: 1,
+      }
+    })
 
-  // 6. Create Stripe Checkout Session
+  // 8. Create Stripe Checkout Session
   let session: Stripe.Checkout.Session
   try {
     session = await stripe.checkout.sessions.create({
@@ -236,10 +326,9 @@ export default async (req: Request, _context: Context): Promise<Response> => {
     return Response.json({ error: 'internal' }, { status: 500 })
   }
 
-  // 7. Persist stripe_checkout_session_id on the order
+  // 9. Persist stripe_checkout_session_id on the order
   await db.sql`UPDATE registration_orders SET stripe_checkout_session_id = ${session.id} WHERE id = ${orderId}`
 
-  // 8. Return checkout URL to the client
   return Response.json({ url: session.url, order_id: orderId })
 }
 
