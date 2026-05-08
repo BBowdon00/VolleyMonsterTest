@@ -1,4 +1,5 @@
-import type { Config, Context } from '@netlify/functions'
+import type { Config } from '@netlify/functions'
+import type { Context } from '../../api/_shim'
 import { orderSubmitSchema } from '../../src/lib/schemas/registration'
 import { db } from './_lib/db'
 import { stripe } from './_lib/stripe'
@@ -143,7 +144,7 @@ export default async (req: Request, context: Context): Promise<Response> => {
           ...new Set(
             entry.players
               .map((p) => p.passCode?.trim().toUpperCase())
-              .filter((c): c is string => Boolean(c) && validPassMap.has(c)),
+              .filter((c): c is string => typeof c === 'string' && validPassMap.has(c)),
           ),
         ]
 

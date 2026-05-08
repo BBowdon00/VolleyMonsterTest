@@ -1,7 +1,6 @@
-import type { Config } from '@netlify/functions'
 import { db } from './_lib/db'
 
-export default async (_req: Request): Promise<void> => {
+export async function cleanupPendingTeams(): Promise<void> {
   await db.sql`
     UPDATE teams
     SET status = 'cancelled'
@@ -10,4 +9,6 @@ export default async (_req: Request): Promise<void> => {
   `
 }
 
-export const config: Config = { schedule: '@hourly' }
+export default async (_req: Request): Promise<void> => {
+  await cleanupPendingTeams()
+}

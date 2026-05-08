@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 // Populates the local dev database with test data via the /api/seed-dev
-// function. Requires `netlify dev` to be running on http://localhost:8888.
+// function. Requires `npm run api:dev` to be running on http://localhost:3000.
 // Usage: npm run db:seed
 
-const url = 'http://localhost:8888/api/seed-dev'
+const url = 'http://localhost:3000/api/seed-dev'
 
 let res
 try {
   res = await fetch(url, { method: 'POST' })
 } catch (err) {
   console.error('Could not reach', url)
-  console.error('Make sure `netlify dev` is running in another terminal.')
+  console.error('Make sure `npm run api:dev` is running in another terminal.')
   process.exit(1)
 }
 

@@ -4,7 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "netlify dev",
+    "dev": "vite",
+    "api:dev": "tsx watch api/index.ts",
+    "dev:db": "docker compose -f deploy/docker-compose.dev.yml up -d",
+    "dev:db:down": "docker compose -f deploy/docker-compose.dev.yml down",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -12,7 +15,7 @@
     "format:check": "prettier --check .",
     "preview": "vite preview",
     "prepare": "husky",
-    "db:migrate": "netlify database migrations apply",
+    "db:migrate": "DATABASE_URL=postgres://volleymonster:dev@localhost:5432/volleymonster tsx api/migrate.ts",
     "db:seed": "node scripts/seed-dev.mjs"
   },
   "lint-staged": {
@@ -25,8 +28,8 @@
     ]
   },
   "dependencies": {
+    "@hono/node-server": "^1.13.0",
     "@hookform/resolvers": "^5.2.2",
-    "@netlify/database": "^1.0.0",
     "@sentry/react": "^10.51.0",
     "@stripe/stripe-js": "^9.3.1",
     "@tailwindcss/typography": "^0.5.19",
@@ -34,7 +37,10 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "hono": "^4.7.0",
     "lucide-react": "^1.14.0",
+    "node-cron": "^3.0.3",
+    "pg": "^8.13.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-hook-form": "^7.74.0",
@@ -47,10 +53,11 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@netlify/functions": "^2.0.0",
-    "@netlify/vite-plugin": "^1.0.0",
     "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/vite": "^4.2.4",
     "@types/node": "^24.12.2",
+    "@types/node-cron": "^3.0.11",
+    "@types/pg": "^8.11.10",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
@@ -64,6 +71,7 @@
     "prettier": "^3.8.3",
     "stripe": "^22.1.0",
     "tailwindcss": "^4.2.4",
+    "tsx": "^4.20.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
     "vite": "^8.0.10"

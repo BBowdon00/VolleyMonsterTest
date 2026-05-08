@@ -1,14 +1,14 @@
-import type { Config, Context } from '@netlify/functions'
+import type { Config } from '@netlify/functions'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { db } from './_lib/db'
 
 // Dev-only seed endpoint. Reads netlify/database/seed-dev.sql and executes it
-// in a single multi-statement query against the local Netlify dev database.
-// Blocked in production via context.deploy.context.
+// in a single multi-statement query against the local dev database.
+// Blocked when NODE_ENV=production.
 
-export default async (_req: Request, context: Context): Promise<Response> => {
-  if (context.deploy.context !== 'dev') {
+export default async (_req: Request): Promise<Response> => {
+  if (process.env.NODE_ENV === 'production') {
     return new Response('Forbidden outside local dev', { status: 403 })
   }
 

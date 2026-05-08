@@ -1,0 +1,15 @@
+# syntax=docker/dockerfile:1.7
+
+# Pulls the SPA dist out of the api image at the same TAG, bakes it into nginx.
+ARG TAG=latest
+ARG GHCR_OWNER
+
+FROM ghcr.io/${GHCR_OWNER}/volleymonster-api:${TAG} AS spa
+
+FROM nginx:1.27-alpine
+COPY --from=spa /app/dist /usr/share/nginx/html
+COPY deploy/nginx/nginx.conf /etc/nginx/nginx.conf
+COPY deploy/nginx/conf.d /etc/nginx/conf.d
+COPY deploy/nginx/snippets /etc/nginx/snippets
+
+EXPOSE 80 443

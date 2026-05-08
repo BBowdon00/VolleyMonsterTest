@@ -1,0 +1,82 @@
+name: volleymonster
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: volleymonster
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: volleymonster
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U volleymonster -d volleymonster"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER is required}/volleymonster-api:${TAG:-latest}
+    restart: "no"
+    command: ["tsx", "api/migrate.ts"]
+    environment:
+      DATABASE_URL: postgres://volleymonster:${POSTGRES_PASSWORD}@postgres:5432/volleymonster
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    image: ghcr.io/${GHCR_OWNER}/volleymonster-api:${TAG:-latest}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://volleymonster:${POSTGRES_PASSWORD}@postgres:5432/volleymonster
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:?STRIPE_SECRET_KEY is required}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?STRIPE_WEBHOOK_SECRET is required}
+      RESEND_API_KEY: ${RESEND_API_KEY:?RESEND_API_KEY is required}
+      EMAIL_FROM: ${EMAIL_FROM:?EMAIL_FROM is required}
+      PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-https://volleymonster.com}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?ADMIN_TOKEN is required}
+      NODE_ENV: production
+      PORT: "3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  nginx:
+    image: ghcr.io/${GHCR_OWNER}/volleymonster-nginx:${TAG:-latest}
+    container_name: volleymonster-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./certbot/www:/var/www/certbot:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+    # Reload every 6h so renewed certs get picked up without operator intervention.
+    command: >
+      /bin/sh -c "
+      while :; do sleep 6h && nginx -s reload; done &
+      exec nginx -g 'daemon off;'"
+    depends_on:
+      - api
+
+  certbot:
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    entrypoint: /bin/sh -c
+    command: >
+      'trap exit TERM;
+      while :; do
+        certbot renew --webroot -w /var/www/certbot --quiet;
+        sleep 12h & wait $${!};
+      done'
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+
+volumes:
+  pgdata:

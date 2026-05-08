@@ -1,4 +1,5 @@
-import type { Config, Context } from '@netlify/functions'
+import type { Config } from '@netlify/functions'
+import type { Context } from '../../api/_shim'
 import Stripe from 'stripe'
 import { stripe } from './_lib/stripe'
 import { db } from './_lib/db'
