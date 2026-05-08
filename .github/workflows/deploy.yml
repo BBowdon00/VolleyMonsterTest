@@ -106,7 +106,7 @@ jobs:
             set -euo pipefail
             cd /opt/volleymonster
             export TAG=${{ needs.build-and-push.outputs.tag }}
-            export GHCR_OWNER=${{ env.IMAGE_OWNER }}
+            export GHCR_OWNER=$(echo '${{ env.IMAGE_OWNER }}' | tr '[:upper:]' '[:lower:]')
             docker compose pull
             docker compose up -d
             docker image prune -f
