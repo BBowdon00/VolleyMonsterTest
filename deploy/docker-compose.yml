@@ -45,38 +45,79 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    labels:
+      - "traefik.enable=true"
+      # Generic API router — lower auto-priority than checkout (shorter rule).
+      - "traefik.http.routers.api.rule=Host(`volleymonster.com`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.api.middlewares=security-headers"
+      - "traefik.http.routers.api.service=api-svc"
+      # Rate-limited checkout router — longer rule wins over api router automatically.
+      - "traefik.http.routers.checkout.rule=Host(`volleymonster.com`) && Path(`/api/create-checkout-session`)"
+      - "traefik.http.routers.checkout.entrypoints=websecure"
+      - "traefik.http.routers.checkout.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.checkout.middlewares=security-headers,checkout-ratelimit"
+      - "traefik.http.routers.checkout.service=api-svc"
+      - "traefik.http.services.api-svc.loadbalancer.server.port=3000"
+      # 10 req/min per IP, burst 5 — mirrors the old nginx limit_req_zone.
+      - "traefik.http.middlewares.checkout-ratelimit.ratelimit.average=10"
+      - "traefik.http.middlewares.checkout-ratelimit.ratelimit.period=1m"
+      - "traefik.http.middlewares.checkout-ratelimit.ratelimit.burst=5"
+      # Security headers shared by all routers — defined here so they exist before web starts.
+      - "traefik.http.middlewares.security-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.security-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.security-headers.headers.frameDeny=true"
+      - "traefik.http.middlewares.security-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.security-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
+      - "traefik.http.middlewares.security-headers.headers.contentSecurityPolicy=default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; frame-src https://js.stripe.com; connect-src 'self' https://api.stripe.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
 
-  nginx:
-    image: ghcr.io/${GHCR_OWNER}/volleymonster-nginx:${TAG:-latest}
-    container_name: volleymonster-nginx
+  web:
+    image: ghcr.io/${GHCR_OWNER}/volleymonster-web:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      - api
+    labels:
+      - "traefik.enable=true"
+      # Apex domain — serves the SPA.
+      - "traefik.http.routers.web.rule=Host(`volleymonster.com`)"
+      - "traefik.http.routers.web.entrypoints=websecure"
+      - "traefik.http.routers.web.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.web.middlewares=security-headers"
+      - "traefik.http.services.web-svc.loadbalancer.server.port=80"
+      # www → apex permanent redirect.
+      - "traefik.http.routers.www-redirect.rule=Host(`www.volleymonster.com`)"
+      - "traefik.http.routers.www-redirect.entrypoints=websecure"
+      - "traefik.http.routers.www-redirect.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.www-redirect.middlewares=www-to-apex"
+      - "traefik.http.routers.www-redirect.service=web-svc"
+      - "traefik.http.middlewares.www-to-apex.redirectregex.regex=^https://www\\.volleymonster\\.com(.*)"
+      - "traefik.http.middlewares.www-to-apex.redirectregex.replacement=https://volleymonster.com$${1}"
+      - "traefik.http.middlewares.www-to-apex.redirectregex.permanent=true"
+
+  traefik:
+    image: traefik:v3.1
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./certbot/www:/var/www/certbot:ro
-      - ./certbot/conf:/etc/letsencrypt:ro
-    # Reload every 6h so renewed certs get picked up without operator intervention.
-    command: >
-      /bin/sh -c "
-      while :; do sleep 6h && nginx -s reload; done &
-      exec nginx -g 'daemon off;'"
-    depends_on:
-      - api
-
-  certbot:
-    image: certbot/certbot:latest
-    restart: unless-stopped
-    entrypoint: /bin/sh -c
-    command: >
-      'trap exit TERM;
-      while :; do
-        certbot renew --webroot -w /var/www/certbot --quiet;
-        sleep 12h & wait $${!};
-      done'
-    volumes:
-      - ./certbot/www:/var/www/certbot
-      - ./certbot/conf:/etc/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${LE_EMAIL:?LE_EMAIL is required}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--accesslog=true"
 
 volumes:
   pgdata:
+  letsencrypt:

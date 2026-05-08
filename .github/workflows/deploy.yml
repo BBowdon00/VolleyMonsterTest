@@ -53,18 +53,20 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build & push nginx image
+      - name: Build & push web image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: deploy/Dockerfile.nginx
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/volleymonster-nginx:${{ steps.meta.outputs.tag }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/volleymonster-nginx:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/volleymonster-web:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/volleymonster-web:latest
           build-args: |
             TAG=${{ steps.meta.outputs.tag }}
             GHCR_OWNER=${{ env.IMAGE_OWNER }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
     name: Deploy to droplet
@@ -87,3 +89,9 @@ jobs:
             docker compose pull
             docker compose up -d
             docker image prune -f
+            for i in $(seq 1 12); do
+              status=$(docker inspect "$(docker compose ps -q api)" --format='{{.State.Health.Status}}' 2>/dev/null || echo "error")
+              [ "$status" = "healthy" ] && break
+              [ $i -eq 12 ] && { echo "API unhealthy after 60s: $status"; docker compose logs api --tail 30; exit 1; }
+              sleep 5
+            done

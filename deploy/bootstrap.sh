@@ -12,12 +12,8 @@ fi
 # ── Args ─────────────────────────────────────────────────────────────────────
 DEPLOY_USER="${DEPLOY_USER:-deploy}"
 SSH_PUBKEY="${SSH_PUBKEY:-}"            # paste your public key into env
-LE_EMAIL="${LE_EMAIL:-}"                # for Let's Encrypt
-APEX_DOMAIN="${APEX_DOMAIN:-volleymonster.com}"
-WWW_DOMAIN="${WWW_DOMAIN:-www.volleymonster.com}"
 
 if [[ -z "$SSH_PUBKEY" ]]; then echo "SSH_PUBKEY env var is required." >&2; exit 1; fi
-if [[ -z "$LE_EMAIL"  ]]; then echo "LE_EMAIL env var is required."   >&2; exit 1; fi
 
 # ── 1. System update + firewall ──────────────────────────────────────────────
 apt-get update
@@ -54,19 +50,13 @@ chmod 700 "/home/$DEPLOY_USER/.ssh"
 chmod 600 "/home/$DEPLOY_USER/.ssh/authorized_keys"
 
 # ── 4. App directory ─────────────────────────────────────────────────────────
-mkdir -p /opt/volleymonster/certbot/{www,conf}
+mkdir -p /opt/volleymonster
 chown -R "$DEPLOY_USER:$DEPLOY_USER" /opt/volleymonster
-
-# ── 5. Bootstrap initial cert (standalone — runs before nginx exists) ────────
-docker run --rm \
-  -p 80:80 \
-  -v /opt/volleymonster/certbot/conf:/etc/letsencrypt \
-  -v /opt/volleymonster/certbot/www:/var/www/certbot \
-  certbot/certbot certonly --standalone \
-    -d "$APEX_DOMAIN" -d "$WWW_DOMAIN" \
-    --email "$LE_EMAIL" --agree-tos --no-eff-email --non-interactive
 
 echo
 echo "Done. Next steps:"
 echo "  1. Place docker-compose.yml and .env at /opt/volleymonster/"
+echo "     .env must include: POSTGRES_PASSWORD, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,"
+echo "     RESEND_API_KEY, EMAIL_FROM, ADMIN_TOKEN, GHCR_OWNER, LE_EMAIL"
 echo "  2. ssh as $DEPLOY_USER and run: docker compose pull && docker compose up -d"
+echo "  Traefik will obtain the Let's Encrypt certificate automatically on first startup."
