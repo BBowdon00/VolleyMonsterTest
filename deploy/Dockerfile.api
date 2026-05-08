@@ -32,6 +32,7 @@ RUN npm ci --omit=dev && \
 # Source the runtime needs (tsx executes .ts files in place)
 COPY api ./api
 COPY server ./server
+COPY src ./src
 COPY tsconfig.json tsconfig.api.json ./
 
 # SPA build output (kept for the nginx image's COPY --from)
