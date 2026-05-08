@@ -11,15 +11,15 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U volleymonster -d volleymonster"]
+      test: ['CMD-SHELL', 'pg_isready -U volleymonster -d volleymonster']
       interval: 5s
       timeout: 3s
       retries: 10
 
   migrate:
     image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER is required}/volleymonster-api:${TAG:-latest}
-    restart: "no"
-    command: ["tsx", "api/migrate.ts"]
+    restart: 'no'
+    command: ['tsx', 'api/migrate.ts']
     environment:
       DATABASE_URL: postgres://volleymonster:${POSTGRES_PASSWORD}@postgres:5432/volleymonster
       NODE_ENV: production
@@ -39,37 +39,37 @@ services:
       PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-https://volleymonster.com}
       ADMIN_TOKEN: ${ADMIN_TOKEN:?ADMIN_TOKEN is required}
       NODE_ENV: production
-      PORT: "3000"
+      PORT: '3000'
     depends_on:
       postgres:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
     labels:
-      - "traefik.enable=true"
+      - 'traefik.enable=true'
       # Generic API router — lower auto-priority than checkout (shorter rule).
-      - "traefik.http.routers.api.rule=Host(`volleymonster.com`) && PathPrefix(`/api`)"
-      - "traefik.http.routers.api.entrypoints=websecure"
-      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.api.middlewares=security-headers"
-      - "traefik.http.routers.api.service=api-svc"
+      - 'traefik.http.routers.api.rule=Host(`volleymonster.com`) && PathPrefix(`/api`)'
+      - 'traefik.http.routers.api.entrypoints=websecure'
+      - 'traefik.http.routers.api.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.api.middlewares=security-headers'
+      - 'traefik.http.routers.api.service=api-svc'
       # Rate-limited checkout router — longer rule wins over api router automatically.
-      - "traefik.http.routers.checkout.rule=Host(`volleymonster.com`) && Path(`/api/create-checkout-session`)"
-      - "traefik.http.routers.checkout.entrypoints=websecure"
-      - "traefik.http.routers.checkout.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.checkout.middlewares=security-headers,checkout-ratelimit"
-      - "traefik.http.routers.checkout.service=api-svc"
-      - "traefik.http.services.api-svc.loadbalancer.server.port=3000"
+      - 'traefik.http.routers.checkout.rule=Host(`volleymonster.com`) && Path(`/api/create-checkout-session`)'
+      - 'traefik.http.routers.checkout.entrypoints=websecure'
+      - 'traefik.http.routers.checkout.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.checkout.middlewares=security-headers,checkout-ratelimit'
+      - 'traefik.http.routers.checkout.service=api-svc'
+      - 'traefik.http.services.api-svc.loadbalancer.server.port=3000'
       # 10 req/min per IP, burst 5 — mirrors the old nginx limit_req_zone.
-      - "traefik.http.middlewares.checkout-ratelimit.ratelimit.average=10"
-      - "traefik.http.middlewares.checkout-ratelimit.ratelimit.period=1m"
-      - "traefik.http.middlewares.checkout-ratelimit.ratelimit.burst=5"
+      - 'traefik.http.middlewares.checkout-ratelimit.ratelimit.average=10'
+      - 'traefik.http.middlewares.checkout-ratelimit.ratelimit.period=1m'
+      - 'traefik.http.middlewares.checkout-ratelimit.ratelimit.burst=5'
       # Security headers shared by all routers — defined here so they exist before web starts.
-      - "traefik.http.middlewares.security-headers.headers.stsSeconds=31536000"
-      - "traefik.http.middlewares.security-headers.headers.stsIncludeSubdomains=true"
-      - "traefik.http.middlewares.security-headers.headers.frameDeny=true"
-      - "traefik.http.middlewares.security-headers.headers.contentTypeNosniff=true"
-      - "traefik.http.middlewares.security-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
+      - 'traefik.http.middlewares.security-headers.headers.stsSeconds=31536000'
+      - 'traefik.http.middlewares.security-headers.headers.stsIncludeSubdomains=true'
+      - 'traefik.http.middlewares.security-headers.headers.frameDeny=true'
+      - 'traefik.http.middlewares.security-headers.headers.contentTypeNosniff=true'
+      - 'traefik.http.middlewares.security-headers.headers.referrerPolicy=strict-origin-when-cross-origin'
       - "traefik.http.middlewares.security-headers.headers.contentSecurityPolicy=default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; frame-src https://js.stripe.com; connect-src 'self' https://api.stripe.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
 
   web:
@@ -78,46 +78,46 @@ services:
     depends_on:
       - api
     labels:
-      - "traefik.enable=true"
+      - 'traefik.enable=true'
       # Apex domain — serves the SPA.
-      - "traefik.http.routers.web.rule=Host(`volleymonster.com`)"
-      - "traefik.http.routers.web.entrypoints=websecure"
-      - "traefik.http.routers.web.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.web.middlewares=security-headers"
-      - "traefik.http.routers.web.service=web-svc"
-      - "traefik.http.services.web-svc.loadbalancer.server.port=80"
+      - 'traefik.http.routers.web.rule=Host(`volleymonster.com`)'
+      - 'traefik.http.routers.web.entrypoints=websecure'
+      - 'traefik.http.routers.web.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.web.middlewares=security-headers'
+      - 'traefik.http.routers.web.service=web-svc'
+      - 'traefik.http.services.web-svc.loadbalancer.server.port=80'
       # www → apex permanent redirect.
-      - "traefik.http.routers.www-redirect.rule=Host(`www.volleymonster.com`)"
-      - "traefik.http.routers.www-redirect.entrypoints=websecure"
-      - "traefik.http.routers.www-redirect.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.www-redirect.middlewares=www-to-apex"
-      - "traefik.http.routers.www-redirect.service=web-svc"
+      - 'traefik.http.routers.www-redirect.rule=Host(`www.volleymonster.com`)'
+      - 'traefik.http.routers.www-redirect.entrypoints=websecure'
+      - 'traefik.http.routers.www-redirect.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.www-redirect.middlewares=www-to-apex'
+      - 'traefik.http.routers.www-redirect.service=web-svc'
       - "traefik.http.middlewares.www-to-apex.redirectregex.regex=^https://www\\.volleymonster\\.com(.*)"
-      - "traefik.http.middlewares.www-to-apex.redirectregex.replacement=https://volleymonster.com$${1}"
-      - "traefik.http.middlewares.www-to-apex.redirectregex.permanent=true"
+      - 'traefik.http.middlewares.www-to-apex.redirectregex.replacement=https://volleymonster.com$${1}'
+      - 'traefik.http.middlewares.www-to-apex.redirectregex.permanent=true'
 
   traefik:
     image: traefik:v3.1
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - '80:80'
+      - '443:443'
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - letsencrypt:/letsencrypt
     command:
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
-      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
-      - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.letsencrypt.acme.email=${LE_EMAIL:?LE_EMAIL is required}"
-      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-      - "--accesslog=true"
+      - '--providers.docker=true'
+      - '--providers.docker.exposedbydefault=false'
+      - '--entrypoints.web.address=:80'
+      - '--entrypoints.web.http.redirections.entrypoint.to=websecure'
+      - '--entrypoints.web.http.redirections.entrypoint.scheme=https'
+      - '--entrypoints.web.http.redirections.entrypoint.permanent=true'
+      - '--entrypoints.websecure.address=:443'
+      - '--certificatesresolvers.letsencrypt.acme.httpchallenge=true'
+      - '--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web'
+      - '--certificatesresolvers.letsencrypt.acme.email=${LE_EMAIL:?LE_EMAIL is required}'
+      - '--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json'
+      - '--accesslog=true'
 
 volumes:
   pgdata:

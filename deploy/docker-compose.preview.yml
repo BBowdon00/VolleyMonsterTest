@@ -11,15 +11,15 @@ services:
     volumes:
       - pgdata-preview:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U volleymonster -d volleymonster"]
+      test: ['CMD-SHELL', 'pg_isready -U volleymonster -d volleymonster']
       interval: 5s
       timeout: 3s
       retries: 10
 
   migrate:
     image: ghcr.io/${GHCR_OWNER:?GHCR_OWNER is required}/volleymonster-api:preview
-    restart: "no"
-    command: ["tsx", "api/migrate.ts"]
+    restart: 'no'
+    command: ['tsx', 'api/migrate.ts']
     environment:
       DATABASE_URL: postgres://volleymonster:${POSTGRES_PASSWORD}@postgres:5432/volleymonster
       NODE_ENV: production
@@ -39,33 +39,33 @@ services:
       PUBLIC_SITE_URL: https://preview.volleymonster.com
       ADMIN_TOKEN: ${ADMIN_TOKEN:?ADMIN_TOKEN is required}
       NODE_ENV: production
-      PORT: "3000"
+      PORT: '3000'
     depends_on:
       postgres:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.preview-api.rule=Host(`preview.volleymonster.com`) && PathPrefix(`/api`)"
-      - "traefik.http.routers.preview-api.entrypoints=websecure"
-      - "traefik.http.routers.preview-api.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.preview-api.middlewares=preview-security-headers"
-      - "traefik.http.routers.preview-api.service=preview-api-svc"
-      - "traefik.http.routers.preview-checkout.rule=Host(`preview.volleymonster.com`) && Path(`/api/create-checkout-session`)"
-      - "traefik.http.routers.preview-checkout.entrypoints=websecure"
-      - "traefik.http.routers.preview-checkout.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.preview-checkout.middlewares=preview-security-headers,preview-checkout-ratelimit"
-      - "traefik.http.routers.preview-checkout.service=preview-api-svc"
-      - "traefik.http.services.preview-api-svc.loadbalancer.server.port=3000"
-      - "traefik.http.middlewares.preview-checkout-ratelimit.ratelimit.average=10"
-      - "traefik.http.middlewares.preview-checkout-ratelimit.ratelimit.period=1m"
-      - "traefik.http.middlewares.preview-checkout-ratelimit.ratelimit.burst=5"
-      - "traefik.http.middlewares.preview-security-headers.headers.stsSeconds=31536000"
-      - "traefik.http.middlewares.preview-security-headers.headers.stsIncludeSubdomains=true"
-      - "traefik.http.middlewares.preview-security-headers.headers.frameDeny=true"
-      - "traefik.http.middlewares.preview-security-headers.headers.contentTypeNosniff=true"
-      - "traefik.http.middlewares.preview-security-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.preview-api.rule=Host(`preview.volleymonster.com`) && PathPrefix(`/api`)'
+      - 'traefik.http.routers.preview-api.entrypoints=websecure'
+      - 'traefik.http.routers.preview-api.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.preview-api.middlewares=preview-security-headers'
+      - 'traefik.http.routers.preview-api.service=preview-api-svc'
+      - 'traefik.http.routers.preview-checkout.rule=Host(`preview.volleymonster.com`) && Path(`/api/create-checkout-session`)'
+      - 'traefik.http.routers.preview-checkout.entrypoints=websecure'
+      - 'traefik.http.routers.preview-checkout.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.preview-checkout.middlewares=preview-security-headers,preview-checkout-ratelimit'
+      - 'traefik.http.routers.preview-checkout.service=preview-api-svc'
+      - 'traefik.http.services.preview-api-svc.loadbalancer.server.port=3000'
+      - 'traefik.http.middlewares.preview-checkout-ratelimit.ratelimit.average=10'
+      - 'traefik.http.middlewares.preview-checkout-ratelimit.ratelimit.period=1m'
+      - 'traefik.http.middlewares.preview-checkout-ratelimit.ratelimit.burst=5'
+      - 'traefik.http.middlewares.preview-security-headers.headers.stsSeconds=31536000'
+      - 'traefik.http.middlewares.preview-security-headers.headers.stsIncludeSubdomains=true'
+      - 'traefik.http.middlewares.preview-security-headers.headers.frameDeny=true'
+      - 'traefik.http.middlewares.preview-security-headers.headers.contentTypeNosniff=true'
+      - 'traefik.http.middlewares.preview-security-headers.headers.referrerPolicy=strict-origin-when-cross-origin'
       - "traefik.http.middlewares.preview-security-headers.headers.contentSecurityPolicy=default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; frame-src https://js.stripe.com; connect-src 'self' https://api.stripe.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
 
   web:
@@ -74,13 +74,13 @@ services:
     depends_on:
       - api
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.preview-web.rule=Host(`preview.volleymonster.com`)"
-      - "traefik.http.routers.preview-web.entrypoints=websecure"
-      - "traefik.http.routers.preview-web.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.preview-web.middlewares=preview-security-headers"
-      - "traefik.http.routers.preview-web.service=preview-web-svc"
-      - "traefik.http.services.preview-web-svc.loadbalancer.server.port=80"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.preview-web.rule=Host(`preview.volleymonster.com`)'
+      - 'traefik.http.routers.preview-web.entrypoints=websecure'
+      - 'traefik.http.routers.preview-web.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.preview-web.middlewares=preview-security-headers'
+      - 'traefik.http.routers.preview-web.service=preview-web-svc'
+      - 'traefik.http.services.preview-web-svc.loadbalancer.server.port=80'
 
 volumes:
   pgdata-preview:
