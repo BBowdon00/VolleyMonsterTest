@@ -82,8 +82,23 @@ jobs:
     name: Deploy to droplet
     needs: build-and-push
     runs-on: ubuntu-latest
-    permissions: {}
+    permissions:
+      contents: read
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Copy compose file to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          source: deploy/docker-compose.yml
+          target: /opt/volleymonster
+          strip_components: 1
+
       - name: Verify SSH secrets are non-empty
         run: |
           echo "DROPLET_HOST length: ${#H}"
