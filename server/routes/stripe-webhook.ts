@@ -1,4 +1,4 @@
-import type { Config } from '@netlify/functions'
+import type { RouteConfig } from '../../api/_shim'
 import type { Context } from '../../api/_shim'
 import Stripe from 'stripe'
 import { stripe } from './_lib/stripe'
@@ -192,4 +192,4 @@ async function handleChargeRefunded(event: Stripe.Event) {
   }
 }
 
-export const config: Config = { path: '/api/stripe-webhook' }
+export const config: RouteConfig = { path: '/api/stripe-webhook' }

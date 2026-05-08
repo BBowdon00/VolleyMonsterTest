@@ -1,4 +1,4 @@
-import type { Config } from '@netlify/functions'
+import type { RouteConfig } from '../../api/_shim'
 import { z } from 'zod'
 import { randomBytes } from 'crypto'
 import { db } from './_lib/db'
@@ -82,4 +82,4 @@ export default async (req: Request): Promise<Response> => {
   return Response.json({ url: session.url })
 }
 
-export const config: Config = { path: '/api/create-season-pass-checkout' }
+export const config: RouteConfig = { path: '/api/create-season-pass-checkout' }

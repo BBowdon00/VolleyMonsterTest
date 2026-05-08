@@ -1,4 +1,4 @@
-import type { Config } from '@netlify/functions'
+import type { RouteConfig } from '../../api/_shim'
 import type { Context } from '../../api/_shim'
 import { orderSubmitSchema } from '../../src/lib/schemas/registration'
 import { db } from './_lib/db'
@@ -333,4 +333,4 @@ export default async (req: Request, context: Context): Promise<Response> => {
   return Response.json({ url: session.url, order_id: orderId })
 }
 
-export const config: Config = { path: '/api/create-checkout-session' }
+export const config: RouteConfig = { path: '/api/create-checkout-session' }

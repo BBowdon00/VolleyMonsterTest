@@ -1,4 +1,4 @@
-import type { Config } from '@netlify/functions'
+import type { RouteConfig } from '../../api/_shim'
 import { db } from './_lib/db'
 
 export default async (req: Request): Promise<Response> => {
@@ -22,4 +22,4 @@ export default async (req: Request): Promise<Response> => {
   return Response.json({ valid: true, holder_name: pass.holder_name ?? null })
 }
 
-export const config: Config = { path: '/api/validate-pass-code' }
+export const config: RouteConfig = { path: '/api/validate-pass-code' }

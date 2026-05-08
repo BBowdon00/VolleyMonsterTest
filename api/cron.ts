@@ -1,5 +1,5 @@
 import cron from 'node-cron'
-import { cleanupPendingTeams } from '../netlify/functions/cleanup-pending-teams.js'
+import { cleanupPendingTeams } from '../server/routes/cleanup-pending-teams.js'
 
 export function startCron(): void {
   cron.schedule('0 * * * *', () => {

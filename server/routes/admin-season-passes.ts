@@ -1,4 +1,4 @@
-import type { Config } from '@netlify/functions'
+import type { RouteConfig } from '../../api/_shim'
 import { randomBytes } from 'crypto'
 import { db } from './_lib/db'
 import { requireAdmin } from './_lib/admin-auth'
@@ -71,7 +71,7 @@ export default async (req: Request): Promise<Response> => {
   return new Response('Method not allowed', { status: 405 })
 }
 
-export const config: Config = {
+export const config: RouteConfig = {
   path: '/api/admin/season-passes',
   method: ['GET', 'POST', 'PATCH'],
 }

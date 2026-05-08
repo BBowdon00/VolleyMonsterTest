@@ -31,7 +31,7 @@ RUN npm ci --legacy-peer-deps --omit=dev && \
 
 # Source the runtime needs (tsx executes .ts files in place)
 COPY api ./api
-COPY netlify ./netlify
+COPY server ./server
 COPY tsconfig.json tsconfig.api.json ./
 
 # SPA build output (kept for the nginx image's COPY --from)

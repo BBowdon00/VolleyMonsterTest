@@ -1,4 +1,4 @@
-import type { Config } from '@netlify/functions'
+import type { RouteConfig } from '../../api/_shim'
 import { db } from './_lib/db'
 
 export default async (req: Request): Promise<Response> => {
@@ -33,4 +33,4 @@ export default async (req: Request): Promise<Response> => {
   })
 }
 
-export const config: Config = { path: '/api/division-teams' }
+export const config: RouteConfig = { path: '/api/division-teams' }

@@ -1,4 +1,4 @@
-import type { Config } from '@netlify/functions'
+import type { RouteConfig } from '../../api/_shim'
 import { db } from './_lib/db'
 import { requireAdmin } from './_lib/admin-auth'
 
@@ -94,4 +94,4 @@ function buildEmailHtml(code: string, firstName: string | null, year: number): s
 </html>`
 }
 
-export const config: Config = { path: '/api/send-season-pass-email' }
+export const config: RouteConfig = { path: '/api/send-season-pass-email' }

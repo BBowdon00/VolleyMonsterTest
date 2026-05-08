@@ -3,6 +3,11 @@
 // (background work in stripe-webhook + create-checkout-session). Both are
 // shimmed here so handlers can be hosted by api/index.ts without Netlify.
 
+export interface RouteConfig {
+  path: string
+  method?: string | string[]
+}
+
 export interface Context {
   waitUntil(promise: Promise<unknown>): void
   deploy: { context: 'production' | 'dev' | string }

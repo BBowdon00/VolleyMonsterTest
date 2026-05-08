@@ -1,4 +1,4 @@
-import type { Config } from '@netlify/functions'
+import type { RouteConfig } from '../../api/_shim'
 import { db } from './_lib/db'
 
 interface UpdateBody {
@@ -52,4 +52,4 @@ export default async (req: Request): Promise<Response> => {
   return Response.json({ data: (result as unknown as { rowCount: number }).rowCount > 0 })
 }
 
-export const config: Config = { path: '/api/manage-team-update-player' }
+export const config: RouteConfig = { path: '/api/manage-team-update-player' }

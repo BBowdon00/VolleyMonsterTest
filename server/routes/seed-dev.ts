@@ -1,9 +1,9 @@
-import type { Config } from '@netlify/functions'
+import type { RouteConfig } from '../../api/_shim'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { db } from './_lib/db'
 
-// Dev-only seed endpoint. Reads netlify/database/seed-dev.sql and executes it
+// Dev-only seed endpoint. Reads server/database/seed-dev.sql and executes it
 // in a single multi-statement query against the local dev database.
 // Blocked when NODE_ENV=production.
 
@@ -12,7 +12,7 @@ export default async (_req: Request): Promise<Response> => {
     return new Response('Forbidden outside local dev', { status: 403 })
   }
 
-  const sqlPath = path.join(process.cwd(), 'netlify', 'database', 'seed-dev.sql')
+  const sqlPath = path.join(process.cwd(), 'server', 'database', 'seed-dev.sql')
   const sql = await readFile(sqlPath, 'utf8')
 
   const client = await db.pool.connect()
@@ -41,7 +41,7 @@ export default async (_req: Request): Promise<Response> => {
   })
 }
 
-export const config: Config = {
+export const config: RouteConfig = {
   path: '/api/seed-dev',
   method: 'POST',
 }

@@ -1,10 +1,10 @@
 import { readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { pool } from '../netlify/functions/_lib/db.js'
+import { pool } from '../server/routes/_lib/db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MIGRATIONS_DIR = path.resolve(__dirname, '../netlify/database/migrations')
+const MIGRATIONS_DIR = path.resolve(__dirname, '../server/database/migrations')
 
 async function ensureMigrationsTable(): Promise<void> {
   await pool.query(`

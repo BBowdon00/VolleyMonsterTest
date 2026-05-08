@@ -1,4 +1,4 @@
-import type { Config } from '@netlify/functions'
+import type { RouteConfig } from '../../api/_shim'
 import { db } from './_lib/db'
 import { requireAdmin } from './_lib/admin-auth'
 
@@ -352,4 +352,4 @@ export default async (req: Request): Promise<Response> => {
   return Response.json({ ok: true })
 }
 
-export const config: Config = { path: '/api/send-confirmation-email' }
+export const config: RouteConfig = { path: '/api/send-confirmation-email' }
