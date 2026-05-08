@@ -84,6 +84,17 @@ jobs:
     runs-on: ubuntu-latest
     permissions: {}
     steps:
+      - name: Verify SSH secrets are non-empty
+        run: |
+          echo "DROPLET_HOST length: ${#H}"
+          echo "DROPLET_USER length: ${#U}"
+          echo "DROPLET_SSH_KEY length: ${#K}"
+          [ -n "$H" ] && [ -n "$U" ] && [ -n "$K" ] || { echo "One or more SSH secrets are empty"; exit 1; }
+        env:
+          H: ${{ secrets.DROPLET_HOST }}
+          U: ${{ secrets.DROPLET_USER }}
+          K: ${{ secrets.DROPLET_SSH_KEY }}
+
       - name: SSH and pull/up
         uses: appleboy/ssh-action@v1.2.0
         with:
