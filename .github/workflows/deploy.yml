@@ -1,8 +1,10 @@
 name: Deploy
 
 on:
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: [CI]
+    branches: [master]
+    types: [completed]
   workflow_dispatch:
 
 concurrency:
@@ -17,6 +19,7 @@ jobs:
   build-and-push:
     name: Build & push images
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     permissions:
       contents: read
       packages: write
@@ -24,10 +27,14 @@ jobs:
       tag: ${{ steps.meta.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Compute short SHA
         id: meta
-        run: echo "tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+        run: |
+          sha="${{ github.event.workflow_run.head_sha || github.sha }}"
+          echo "tag=${sha:0:12}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -47,6 +54,8 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/volleymonster-api:${{ steps.meta.outputs.tag }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/volleymonster-api:latest
+          # These are Vite frontend vars consumed during the SPA build inside
+          # Dockerfile.api. The dist folder is later extracted by Dockerfile.nginx.
           build-args: |
             VITE_STRIPE_PUBLISHABLE_KEY=${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
             VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
@@ -57,7 +66,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: deploy/Dockerfile.nginx
+          file: deploy/Dockerfile.web
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/volleymonster-web:${{ steps.meta.outputs.tag }}
@@ -72,7 +81,7 @@ jobs:
     name: Deploy to droplet
     needs: build-and-push
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    permissions: {}
     steps:
       - name: SSH and pull/up
         uses: appleboy/ssh-action@v1.2.0

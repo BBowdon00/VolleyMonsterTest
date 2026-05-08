@@ -1,7 +1,8 @@
-// Shared admin-auth check for /api/admin/* endpoints.
-// Configure ADMIN_TOKEN in .env.local locally and in the Netlify dashboard
-// (production / deploy-preview / branch-deploy contexts) for any environment
-// where admin should be enabled.
+import { createHash, timingSafeEqual } from 'crypto'
+
+function hashToken(token: string): Buffer {
+  return createHash('sha256').update(token).digest()
+}
 
 export function requireAdmin(req: Request): Response | null {
   const expected = process.env.ADMIN_TOKEN
@@ -11,8 +12,8 @@ export function requireAdmin(req: Request): Response | null {
       { status: 503 },
     )
   }
-  const provided = req.headers.get('x-admin-token')
-  if (provided !== expected) {
+  const provided = req.headers.get('x-admin-token') ?? ''
+  if (!timingSafeEqual(hashToken(expected), hashToken(provided))) {
     return Response.json({ error: 'unauthorized' }, { status: 401 })
   }
   return null

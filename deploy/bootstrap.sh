@@ -51,7 +51,9 @@ chmod 600 "/home/$DEPLOY_USER/.ssh/authorized_keys"
 
 # ── 4. App directory ─────────────────────────────────────────────────────────
 mkdir -p /opt/volleymonster
+touch /opt/volleymonster/.env /opt/volleymonster/.env.preview
 chown -R "$DEPLOY_USER:$DEPLOY_USER" /opt/volleymonster
+chmod 600 /opt/volleymonster/.env /opt/volleymonster/.env.preview
 
 echo
 echo "Done. Next steps:"

@@ -98,7 +98,10 @@ async function handleCheckoutCompleted(event: Stripe.Event, context: Context) {
     context.waitUntil(
       fetch(`${siteUrl}/api/send-confirmation-email`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-token': process.env.ADMIN_TOKEN ?? '',
+        },
         body: JSON.stringify({ order_id: order.id }),
       }).catch((err) => console.error('Email trigger failed:', err)),
     )
@@ -119,7 +122,10 @@ async function handleSeasonPassCompleted(session: Stripe.Checkout.Session, conte
     context.waitUntil(
       fetch(`${siteUrl}/api/send-season-pass-email`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-token': process.env.ADMIN_TOKEN ?? '',
+        },
         body: JSON.stringify({ pass_id: passId }),
       }).catch((err) => console.error('Season pass email trigger failed:', err)),
     )

@@ -16,7 +16,10 @@
     "preview": "vite preview",
     "prepare": "husky",
     "db:migrate": "DATABASE_URL=postgres://volleymonster:dev@localhost:5432/volleymonster tsx api/migrate.ts",
-    "db:seed": "node scripts/seed-dev.mjs"
+    "db:seed": "node scripts/seed-dev.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -53,6 +56,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@netlify/functions": "^2.0.0",
+    "@playwright/test": "^1.50.0",
     "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/vite": "^4.2.4",
     "@types/node": "^24.12.2",
@@ -74,6 +78,7 @@
     "tsx": "^4.20.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
-    "vite": "^8.0.10"
+    "vite": "^8.0.10",
+    "vitest": "^4.1.5"
   }
 }

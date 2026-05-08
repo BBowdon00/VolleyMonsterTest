@@ -1,8 +1,11 @@
 import type { Config } from '@netlify/functions'
 import { db } from './_lib/db'
+import { requireAdmin } from './_lib/admin-auth'
 
 export default async (req: Request): Promise<Response> => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
+  const authError = requireAdmin(req)
+  if (authError) return authError
 
   let body: unknown
   try {

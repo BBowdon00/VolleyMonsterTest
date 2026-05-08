@@ -84,6 +84,7 @@ services:
       - "traefik.http.routers.web.entrypoints=websecure"
       - "traefik.http.routers.web.tls.certresolver=letsencrypt"
       - "traefik.http.routers.web.middlewares=security-headers"
+      - "traefik.http.routers.web.service=web-svc"
       - "traefik.http.services.web-svc.loadbalancer.server.port=80"
       # www → apex permanent redirect.
       - "traefik.http.routers.www-redirect.rule=Host(`www.volleymonster.com`)"

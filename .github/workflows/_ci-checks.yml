@@ -1,0 +1,41 @@
+name: CI Checks
+
+on:
+  workflow_call:
+    inputs:
+      stripe_key:
+        description: VITE_STRIPE_PUBLISHABLE_KEY baked into the SPA build
+        type: string
+        default: pk_test_placeholder
+
+jobs:
+  check:
+    name: Typecheck · Lint · Format · Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_STRIPE_PUBLISHABLE_KEY: ${{ inputs.stripe_key }}

@@ -67,7 +67,7 @@ Go to **Settings → Secrets and variables → Actions** and add:
 
 ## 5. Deploy
 
-Push to `main` (or trigger **Actions → Deploy → Run workflow**). The workflow:
+Push to `master` (or trigger **Actions → Deploy → Run workflow**). The workflow:
 
 1. Builds and pushes `volleymonster-api` and `volleymonster-web` to GHCR
 2. SSHes into the VPS and runs `docker compose pull && docker compose up -d`
@@ -76,9 +76,40 @@ Traefik provisions the TLS certificate on the first request. Allow 30–60 secon
 
 ---
 
+## Preview environment
+
+A `preview` branch deploys to `preview.volleymonster.com` on the same VPS, using separate containers and a separate database. Stripe test keys are baked into the preview image.
+
+### One-time setup
+
+**DNS** — add an A record pointing to the same VPS IP:
+
+```
+A  preview.volleymonster.com  <VPS_IP>
+```
+
+**`.env.preview`** on the VPS at `/opt/volleymonster/.env.preview`:
+
+```env
+POSTGRES_PASSWORD=<strong-random-different-from-prod>
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+RESEND_API_KEY=re_...
+EMAIL_FROM=noreply@volleymonster.com
+ADMIN_TOKEN=<strong-random>
+```
+
+**GitHub secret** — add `VITE_STRIPE_PUBLISHABLE_KEY_PREVIEW` with your `pk_test_...` key.
+
+### Workflow
+
+Push to the `preview` branch → CI checks → build images tagged `preview` → deploy → Playwright smoke tests run automatically against the live preview URL.
+
+---
+
 ## Ongoing operations
 
-**Redeploy:** push to `main` or trigger the workflow manually.
+**Redeploy:** push to `master` or trigger the workflow manually.
 
 **View logs:**
 
