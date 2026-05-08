@@ -45,9 +45,11 @@ EMAIL_FROM=noreply@volleymonster.com
 PUBLIC_SITE_URL=https://volleymonster.com
 ADMIN_TOKEN=<strong-random>
 LE_EMAIL=you@example.com
+DOMAIN=volleymonster.com
+GHCR_OWNER=<your-github-username-lowercase>
 ```
 
-`GHCR_OWNER` and `TAG` are injected by CI and do not belong in `.env`.
+`TAG` is injected by CI and does not belong in `.env`. `GHCR_OWNER` is also injected by CI but must be in `.env` for manual `docker compose` commands on the VPS.
 
 ---
 

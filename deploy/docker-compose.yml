@@ -36,7 +36,7 @@ services:
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?STRIPE_WEBHOOK_SECRET is required}
       RESEND_API_KEY: ${RESEND_API_KEY:?RESEND_API_KEY is required}
       EMAIL_FROM: ${EMAIL_FROM:?EMAIL_FROM is required}
-      PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-https://volleymonster.com}
+      PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:?PUBLIC_SITE_URL is required}
       ADMIN_TOKEN: ${ADMIN_TOKEN:?ADMIN_TOKEN is required}
       NODE_ENV: production
       PORT: '3000'
@@ -47,24 +47,20 @@ services:
         condition: service_completed_successfully
     labels:
       - 'traefik.enable=true'
-      # Generic API router — lower auto-priority than checkout (shorter rule).
-      - 'traefik.http.routers.api.rule=Host(`volleymonster.com`) && PathPrefix(`/api`)'
+      - 'traefik.http.routers.api.rule=Host(`${DOMAIN:?DOMAIN is required}`) && PathPrefix(`/api`)'
       - 'traefik.http.routers.api.entrypoints=websecure'
       - 'traefik.http.routers.api.tls.certresolver=letsencrypt'
       - 'traefik.http.routers.api.middlewares=security-headers'
       - 'traefik.http.routers.api.service=api-svc'
-      # Rate-limited checkout router — longer rule wins over api router automatically.
-      - 'traefik.http.routers.checkout.rule=Host(`volleymonster.com`) && Path(`/api/create-checkout-session`)'
+      - 'traefik.http.routers.checkout.rule=Host(`${DOMAIN}`) && Path(`/api/create-checkout-session`)'
       - 'traefik.http.routers.checkout.entrypoints=websecure'
       - 'traefik.http.routers.checkout.tls.certresolver=letsencrypt'
       - 'traefik.http.routers.checkout.middlewares=security-headers,checkout-ratelimit'
       - 'traefik.http.routers.checkout.service=api-svc'
       - 'traefik.http.services.api-svc.loadbalancer.server.port=3000'
-      # 10 req/min per IP, burst 5 — mirrors the old nginx limit_req_zone.
       - 'traefik.http.middlewares.checkout-ratelimit.ratelimit.average=10'
       - 'traefik.http.middlewares.checkout-ratelimit.ratelimit.period=1m'
       - 'traefik.http.middlewares.checkout-ratelimit.ratelimit.burst=5'
-      # Security headers shared by all routers — defined here so they exist before web starts.
       - 'traefik.http.middlewares.security-headers.headers.stsSeconds=31536000'
       - 'traefik.http.middlewares.security-headers.headers.stsIncludeSubdomains=true'
       - 'traefik.http.middlewares.security-headers.headers.frameDeny=true'
@@ -79,26 +75,18 @@ services:
       - api
     labels:
       - 'traefik.enable=true'
-      # Apex domain — serves the SPA.
-      - 'traefik.http.routers.web.rule=Host(`volleymonster.com`)'
+      - 'traefik.http.routers.web.rule=Host(`${DOMAIN}`)'
       - 'traefik.http.routers.web.entrypoints=websecure'
       - 'traefik.http.routers.web.tls.certresolver=letsencrypt'
       - 'traefik.http.routers.web.middlewares=security-headers'
       - 'traefik.http.routers.web.service=web-svc'
       - 'traefik.http.services.web-svc.loadbalancer.server.port=80'
-      # www → apex permanent redirect.
-      - 'traefik.http.routers.www-redirect.rule=Host(`www.volleymonster.com`)'
-      - 'traefik.http.routers.www-redirect.entrypoints=websecure'
-      - 'traefik.http.routers.www-redirect.tls.certresolver=letsencrypt'
-      - 'traefik.http.routers.www-redirect.middlewares=www-to-apex'
-      - 'traefik.http.routers.www-redirect.service=web-svc'
-      - "traefik.http.middlewares.www-to-apex.redirectregex.regex=^https://www\\.volleymonster\\.com(.*)"
-      - 'traefik.http.middlewares.www-to-apex.redirectregex.replacement=https://volleymonster.com$${1}'
-      - 'traefik.http.middlewares.www-to-apex.redirectregex.permanent=true'
 
   traefik:
-    image: traefik:v3.1
+    image: traefik:v3
     restart: unless-stopped
+    environment:
+      - DOCKER_API_VERSION=1.41
     ports:
       - '80:80'
       - '443:443'
