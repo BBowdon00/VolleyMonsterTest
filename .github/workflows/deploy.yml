@@ -30,11 +30,12 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-      - name: Compute short SHA
+      - name: Compute short SHA and lowercase owner
         id: meta
         run: |
           sha="${{ github.event.workflow_run.head_sha || github.sha }}"
           echo "tag=${sha:0:12}" >> "$GITHUB_OUTPUT"
+          echo "IMAGE_OWNER=$(echo '${{ env.IMAGE_OWNER }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
 
       - uses: docker/setup-buildx-action@v3
 
