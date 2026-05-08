@@ -28,6 +28,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Lowercase image owner
+        run: echo "IMAGE_OWNER=$(echo '${{ env.IMAGE_OWNER }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
+
       - uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
@@ -112,7 +115,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
