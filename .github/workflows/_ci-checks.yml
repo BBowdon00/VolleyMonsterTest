@@ -2,11 +2,9 @@ name: CI Checks
 
 on:
   workflow_call:
-    inputs:
+    secrets:
       stripe_key:
-        description: VITE_STRIPE_PUBLISHABLE_KEY baked into the SPA build
-        type: string
-        default: pk_test_placeholder
+        required: false
 
 jobs:
   check:
@@ -38,4 +36,4 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_STRIPE_PUBLISHABLE_KEY: ${{ inputs.stripe_key }}
+          VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.stripe_key || 'pk_test_placeholder' }}

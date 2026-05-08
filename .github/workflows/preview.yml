@@ -15,8 +15,8 @@ env:
 jobs:
   ci:
     uses: ./.github/workflows/_ci-checks.yml
-    with:
-      stripe_key: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY_PREVIEW || 'pk_test_placeholder' }}
+    secrets:
+      stripe_key: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY_PREVIEW }}
 
   build-and-push:
     name: Build & push preview images
