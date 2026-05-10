@@ -82,6 +82,7 @@ jobs:
           source: deploy/docker-compose.preview.yml
           target: /opt/volleymonster/preview
           strip_components: 1
+          overwrite: true
 
       - name: Deploy
         uses: appleboy/ssh-action@v1.2.0

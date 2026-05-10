@@ -98,6 +98,7 @@ jobs:
           source: deploy/docker-compose.yml
           target: /opt/volleymonster/prod
           strip_components: 1
+          overwrite: true
 
       - name: Verify SSH secrets are non-empty
         run: |
