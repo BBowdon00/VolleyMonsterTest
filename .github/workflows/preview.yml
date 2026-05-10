@@ -129,4 +129,4 @@ jobs:
       - name: Run smoke tests
         run: npm run test:e2e:slow
         env:
-          E2E_BASE_URL: https://preview.volleymonster.com
+          E2E_BASE_URL: https://preview.161-35-253-165.sslip.io/
