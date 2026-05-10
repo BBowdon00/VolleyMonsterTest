@@ -1,0 +1,11 @@
+# Slower checks gated to push: unit tests + Playwright @smoke subset.
+#
+# The @smoke subset doesn't need the Stripe Checkout UI test (@slow), but it
+# DOES boot the full local stack via Playwright's webServer + globalSetup —
+# that is intentional. Silent skips are how AI-driven dev rots; if the stack
+# can't come up, the push fails so you fix it now, not later.
+#
+# Bypass with `git push --no-verify` only if you know what you're doing.
+
+npm run test
+npm run test:e2e:smoke

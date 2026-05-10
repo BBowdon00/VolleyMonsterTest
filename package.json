@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "api:dev": "tsx watch api/index.ts",
+    "api:dev": "tsx watch --env-file=.env.local api/index.ts",
+    "api:dev:test": "tsx --env-file=.env.local api/index.ts",
     "dev:db": "docker compose -f deploy/docker-compose.dev.yml up -d",
     "dev:db:down": "docker compose -f deploy/docker-compose.dev.yml down",
     "build": "tsc -b && vite build",
@@ -14,11 +15,13 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "preview": "vite preview",
-    "db:migrate": "DATABASE_URL=postgres://volleymonster:dev@localhost:5432/volleymonster tsx api/migrate.ts",
+    "db:migrate": "tsx --env-file=.env.local api/migrate.ts",
     "db:seed": "node scripts/seed-dev.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:smoke": "playwright test --grep @smoke",
+    "test:e2e:slow": "playwright test --grep @slow"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

@@ -127,6 +127,6 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run smoke tests
-        run: npm run test:e2e
+        run: npm run test:e2e:slow
         env:
           E2E_BASE_URL: https://preview.volleymonster.com

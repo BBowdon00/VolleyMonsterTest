@@ -1,1 +1,5 @@
+# Fast checks: lint + format on changed files, plus full typecheck.
+# Typecheck is the highest-value pre-commit check for AI-driven dev — Claude
+# regularly produces code that lints clean but fails `tsc`.
 npx lint-staged
+npm run typecheck
