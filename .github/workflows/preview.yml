@@ -80,7 +80,8 @@ jobs:
           username: ${{ secrets.DROPLET_USER }}
           key: ${{ secrets.DROPLET_SSH_KEY }}
           source: deploy/docker-compose.preview.yml
-          target: /opt/volleymonster
+          target: /opt/volleymonster/preview
+          strip_components: 1
 
       - name: Deploy
         uses: appleboy/ssh-action@v1.2.0
@@ -90,16 +91,16 @@ jobs:
           key: ${{ secrets.DROPLET_SSH_KEY }}
           script: |
             set -euo pipefail
-            cd /opt/volleymonster
+            cd /opt/volleymonster/preview
             export GHCR_OWNER=$(echo '${{ env.IMAGE_OWNER }}' | tr '[:upper:]' '[:lower:]')
             docker network inspect traefik-public >/dev/null 2>&1 || docker network create traefik-public
-            docker compose -f deploy/docker-compose.preview.yml --env-file .env.preview pull
-            docker compose -f deploy/docker-compose.preview.yml --env-file .env.preview up -d
+            docker compose -f docker-compose.preview.yml --env-file .env.preview pull
+            docker compose -f docker-compose.preview.yml --env-file .env.preview up -d
             docker image prune -f
             for i in $(seq 1 12); do
-              status=$(docker inspect "$(docker compose -f deploy/docker-compose.preview.yml --env-file .env.preview ps -q api)" --format='{{.State.Health.Status}}' 2>/dev/null || echo "error")
+              status=$(docker inspect "$(docker compose -f docker-compose.preview.yml --env-file .env.preview ps -q api)" --format='{{.State.Health.Status}}' 2>/dev/null || echo "error")
               [ "$status" = "healthy" ] && break
-              [ $i -eq 12 ] && { echo "Preview API unhealthy after 60s: $status"; docker compose -f deploy/docker-compose.preview.yml --env-file .env.preview logs api --tail 30; exit 1; }
+              [ $i -eq 12 ] && { echo "Preview API unhealthy after 60s: $status"; docker compose -f docker-compose.preview.yml --env-file .env.preview logs api --tail 30; exit 1; }
               sleep 5
             done
 
