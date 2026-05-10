@@ -118,8 +118,14 @@ export default async (req: Request): Promise<Response> => {
 
   if (req.method === 'DELETE') {
     const id = url.searchParams.get('id')
-    if (!id) return Response.json({ error: 'missing_id' }, { status: 400 })
-    await db.sql`DELETE FROM public.teams WHERE id = ${id}::uuid`
+    const captainEmail = url.searchParams.get('captain_email')
+    if (id) {
+      await db.sql`DELETE FROM public.teams WHERE id = ${id}::uuid`
+    } else if (captainEmail) {
+      await db.sql`DELETE FROM public.teams WHERE captain_email = ${captainEmail.toLowerCase().trim()}`
+    } else {
+      return Response.json({ error: 'missing_id_or_captain_email' }, { status: 400 })
+    }
     return Response.json({ ok: true })
   }
 

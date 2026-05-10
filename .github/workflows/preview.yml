@@ -129,10 +129,21 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
+      - name: Wait for preview site to be reachable
+        run: |
+          for i in $(seq 1 24); do
+            status=$(curl -o /dev/null -s -w "%{http_code}" https://preview.161-35-253-165.sslip.io/)
+            [ "$status" -lt 500 ] && echo "Site up (HTTP $status)" && break
+            [ $i -eq 24 ] && echo "Site did not come up after 120s (last status: $status)" && exit 1
+            echo "Attempt $i: HTTP $status, retrying in 5s..."
+            sleep 5
+          done
+
       - name: Run smoke tests
         run: npm run test:e2e:slow
         env:
           E2E_BASE_URL: https://preview.161-35-253-165.sslip.io/
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN_PREVIEW }}
 
       - name: Upload Playwright artifacts on failure
         if: failure()

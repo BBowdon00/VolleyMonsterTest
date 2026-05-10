@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { deleteTeamsByEmail, withDb } from './helpers/db'
+import { deleteTeamsByEmail, pollForConfirmedTeam } from './helpers/adminApi'
 
 // @slow — full UI E2E: navigate the registration flow, drive the real Stripe
 // Checkout page with the 4242 test card, wait for `stripe listen` to deliver
@@ -14,14 +14,17 @@ test.describe('@slow full UI registration → Stripe Checkout → confirmed', ()
 
   const CAPTAIN_EMAIL = `full-ui-${Date.now()}@test.vm`
 
-  test.beforeEach(async () => {
-    await deleteTeamsByEmail(CAPTAIN_EMAIL)
+  test.beforeEach(async ({ request }) => {
+    await deleteTeamsByEmail(request, CAPTAIN_EMAIL)
   })
-  test.afterAll(async () => {
-    await deleteTeamsByEmail(CAPTAIN_EMAIL)
+  test.afterAll(async ({ request }) => {
+    await deleteTeamsByEmail(request, CAPTAIN_EMAIL)
   })
 
-  test('captain registers a doubles team and team appears on tournament page', async ({ page }) => {
+  test('captain registers a doubles team and team appears on tournament page', async ({
+    page,
+    request,
+  }) => {
     // Navigate to the registration flow
     await page.goto('/tournaments/season-opener-2026/register')
     await page.waitForLoadState('networkidle')
@@ -122,7 +125,7 @@ test.describe('@slow full UI registration → Stripe Checkout → confirmed', ()
 
     // The webhook arrives via `stripe listen`; poll for the team to flip
     // to confirmed. Up to 15s.
-    const team = await pollForConfirmedTeam(CAPTAIN_EMAIL, 15_000)
+    const team = await pollForConfirmedTeam(request, 'season-opener-2026', CAPTAIN_EMAIL, 15_000)
     expect(team).toBeTruthy()
 
     // The team's player names appear when browsing the tournament detail page.
@@ -155,28 +158,3 @@ test.describe('@slow full UI registration → Stripe Checkout → confirmed', ()
     await expect(page.getByText(expectedPlayerList)).toBeVisible({ timeout: 10_000 })
   })
 })
-
-async function pollForConfirmedTeam(
-  email: string,
-  timeoutMs: number,
-): Promise<{ id: string; name: string; players: string[] } | null> {
-  const start = Date.now()
-  while (Date.now() - start < timeoutMs) {
-    const team = await withDb(async (c) => {
-      const r = await c.query<{ id: string; name: string; players: string[] }>(
-        `SELECT t.id, t.name,
-                COALESCE(array_agg(p.name ORDER BY p.sort_order)
-                         FILTER (WHERE p.id IS NOT NULL), '{}') AS players
-         FROM teams t
-         LEFT JOIN players p ON p.team_id = t.id
-         WHERE t.captain_email = $1 AND t.status = 'confirmed'
-         GROUP BY t.id LIMIT 1`,
-        [email.toLowerCase().trim()],
-      )
-      return r.rows[0] ?? null
-    })
-    if (team) return team
-    await new Promise((r) => setTimeout(r, 500))
-  }
-  return null
-}
