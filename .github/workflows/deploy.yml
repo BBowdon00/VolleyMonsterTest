@@ -122,6 +122,7 @@ jobs:
             cd /opt/volleymonster
             export TAG=${{ needs.build-and-push.outputs.tag }}
             export GHCR_OWNER=$(echo '${{ env.IMAGE_OWNER }}' | tr '[:upper:]' '[:lower:]')
+            docker network inspect traefik-public >/dev/null 2>&1 || docker network create traefik-public
             docker compose pull
             docker compose up -d
             docker image prune -f

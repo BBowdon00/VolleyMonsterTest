@@ -13,7 +13,7 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
   retries: isCI ? 2 : 0,
-  reporter: isCI ? 'github' : 'list',
+  reporter: isCI ? [['github'], ['html', { open: 'never' }]] : 'list',
   fullyParallel: false, // tests share a database; serial avoids cross-test interference
 
   // Bring up the local stack only when targeting localhost.
@@ -21,7 +21,7 @@ export default defineConfig({
 
   use: {
     baseURL,
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
