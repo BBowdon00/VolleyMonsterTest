@@ -146,6 +146,39 @@ GitHub Actions (`.github/workflows/`):
 
 Required GitHub repo secrets: `DROPLET_HOST`, `DROPLET_USER`, `DROPLET_SSH_KEY`, `VITE_STRIPE_PUBLISHABLE_KEY`, `VITE_SENTRY_DSN` (optional), `VITE_STRIPE_PUBLISHABLE_KEY_PREVIEW`.
 
+### VPS layout: prod and preview share traefik
+
+Both stacks run on the same VPS. Production owns traefik (terminates TLS, issues Let's Encrypt certs); preview reuses it. They communicate via an external Docker network `traefik-public` that both compose projects join. Postgres in each project stays on its project-private `default` network — the two databases cannot see each other and traefik cannot reach them.
+
+One-time setup before the first preview deploy:
+
+```bash
+docker network create traefik-public
+```
+
+After that, deploys are independent — `docker compose -f docker-compose.yml up -d` (prod) and `docker compose -f docker-compose.preview.yml --env-file .env.preview up -d` (preview) don't touch each other.
+
+### Env files on the VPS
+
+| File                              | Purpose                                                      |
+| --------------------------------- | ------------------------------------------------------------ |
+| `/opt/volleymonster/.env`         | Production. `DOMAIN=`, live Stripe keys, prod admin token    |
+| `/opt/volleymonster/.env.preview` | Preview. `PREVIEW_DOMAIN=`, test Stripe keys, separate token |
+
+`.env.preview` required keys: `GHCR_OWNER`, `POSTGRES_PASSWORD`, `STRIPE_SECRET_KEY` (test), `STRIPE_WEBHOOK_SECRET` (from a Stripe webhook endpoint pointing at `https://${PREVIEW_DOMAIN}/api/stripe-webhook`), `RESEND_API_KEY`, `EMAIL_FROM`, `ADMIN_TOKEN`, `PREVIEW_DOMAIN`. Use a different `POSTGRES_PASSWORD` and `ADMIN_TOKEN` than production.
+
+### Seeding the preview database
+
+`api/seed.ts` is a one-shot CLI script bundled into the api image. It is **not** registered in `api/index.ts`'s router — there is no HTTP route, so it has zero internet surface. Invoke it via the matching `seed` service (which uses `profiles: ['manual']` so it never auto-starts):
+
+```bash
+cd /opt/volleymonster
+docker compose -f deploy/docker-compose.preview.yml --env-file .env.preview \
+  run --rm seed
+```
+
+Idempotent — `seed-dev.sql` deletes prior `@test.vm` rows before inserting. Refuses to run unless `ALLOW_SEED=true` is set (already wired into the preview compose's `seed` service env). Production has no `seed` service; do not add one.
+
 ## Stripe test card
 
 `4242 4242 4242 4242` — any future date, any CVC.

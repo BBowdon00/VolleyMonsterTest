@@ -10,6 +10,8 @@ services:
       POSTGRES_DB: volleymonster
     volumes:
       - pgdata-preview:/var/lib/postgresql/data
+    networks:
+      - default
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U volleymonster -d volleymonster']
       interval: 5s
@@ -23,6 +25,28 @@ services:
     environment:
       DATABASE_URL: postgres://volleymonster:${POSTGRES_PASSWORD}@postgres:5432/volleymonster
       NODE_ENV: production
+    networks:
+      - default
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Manual one-shot seed. Never auto-starts because of `profiles: ['manual']`.
+  # Invoke explicitly:
+  #   docker compose -f deploy/docker-compose.preview.yml --env-file .env.preview run --rm seed
+  # The seed script (api/seed.ts) is not registered in api/index.ts's router,
+  # so this has no internet surface — it can only be invoked from a shell on
+  # the VPS.
+  seed:
+    image: ghcr.io/${GHCR_OWNER}/volleymonster-api:preview
+    profiles: ['manual']
+    command: ['tsx', 'api/seed.ts']
+    environment:
+      DATABASE_URL: postgres://volleymonster:${POSTGRES_PASSWORD}@postgres:5432/volleymonster
+      NODE_ENV: production
+      ALLOW_SEED: 'true'
+    networks:
+      - default
     depends_on:
       postgres:
         condition: service_healthy
@@ -36,10 +60,13 @@ services:
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?STRIPE_WEBHOOK_SECRET is required}
       RESEND_API_KEY: ${RESEND_API_KEY:?RESEND_API_KEY is required}
       EMAIL_FROM: ${EMAIL_FROM:?EMAIL_FROM is required}
-      PUBLIC_SITE_URL: https://preview.volleymonster.com
+      PUBLIC_SITE_URL: https://${PREVIEW_DOMAIN:?PREVIEW_DOMAIN is required}
       ADMIN_TOKEN: ${ADMIN_TOKEN:?ADMIN_TOKEN is required}
       NODE_ENV: production
       PORT: '3000'
+    networks:
+      - default
+      - traefik-public
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,12 +74,13 @@ services:
         condition: service_completed_successfully
     labels:
       - 'traefik.enable=true'
-      - 'traefik.http.routers.preview-api.rule=Host(`preview.volleymonster.com`) && PathPrefix(`/api`)'
+      - 'traefik.docker.network=traefik-public'
+      - 'traefik.http.routers.preview-api.rule=Host(`${PREVIEW_DOMAIN}`) && PathPrefix(`/api`)'
       - 'traefik.http.routers.preview-api.entrypoints=websecure'
       - 'traefik.http.routers.preview-api.tls.certresolver=letsencrypt'
       - 'traefik.http.routers.preview-api.middlewares=preview-security-headers'
       - 'traefik.http.routers.preview-api.service=preview-api-svc'
-      - 'traefik.http.routers.preview-checkout.rule=Host(`preview.volleymonster.com`) && Path(`/api/create-checkout-session`)'
+      - 'traefik.http.routers.preview-checkout.rule=Host(`${PREVIEW_DOMAIN}`) && Path(`/api/create-checkout-session`)'
       - 'traefik.http.routers.preview-checkout.entrypoints=websecure'
       - 'traefik.http.routers.preview-checkout.tls.certresolver=letsencrypt'
       - 'traefik.http.routers.preview-checkout.middlewares=preview-security-headers,preview-checkout-ratelimit'
@@ -71,11 +99,14 @@ services:
   web:
     image: ghcr.io/${GHCR_OWNER}/volleymonster-web:preview
     restart: unless-stopped
+    networks:
+      - traefik-public
     depends_on:
       - api
     labels:
       - 'traefik.enable=true'
-      - 'traefik.http.routers.preview-web.rule=Host(`preview.volleymonster.com`)'
+      - 'traefik.docker.network=traefik-public'
+      - 'traefik.http.routers.preview-web.rule=Host(`${PREVIEW_DOMAIN}`)'
       - 'traefik.http.routers.preview-web.entrypoints=websecure'
       - 'traefik.http.routers.preview-web.tls.certresolver=letsencrypt'
       - 'traefik.http.routers.preview-web.middlewares=preview-security-headers'
@@ -84,3 +115,18 @@ services:
 
 volumes:
   pgdata-preview:
+
+# `traefik-public` is a shared network owned by the production compose project
+# (where traefik runs). Production traefik can only route to containers it
+# shares a network with — joining preview's api+web here is what makes
+# https://${PREVIEW_DOMAIN} actually reach this stack.
+#
+# Postgres deliberately stays off this network: nothing on traefik-public
+# should be able to reach the database directly. Same for the seed service.
+#
+# One-time setup on the VPS (before first preview deploy):
+#   docker network create traefik-public
+networks:
+  default:
+  traefik-public:
+    external: true

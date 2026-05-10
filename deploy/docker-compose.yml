@@ -10,6 +10,8 @@ services:
       POSTGRES_DB: volleymonster
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - default
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U volleymonster -d volleymonster']
       interval: 5s
@@ -23,6 +25,8 @@ services:
     environment:
       DATABASE_URL: postgres://volleymonster:${POSTGRES_PASSWORD}@postgres:5432/volleymonster
       NODE_ENV: production
+    networks:
+      - default
     depends_on:
       postgres:
         condition: service_healthy
@@ -36,10 +40,13 @@ services:
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?STRIPE_WEBHOOK_SECRET is required}
       RESEND_API_KEY: ${RESEND_API_KEY:?RESEND_API_KEY is required}
       EMAIL_FROM: ${EMAIL_FROM:?EMAIL_FROM is required}
-      PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:?PUBLIC_SITE_URL is required}
+      PUBLIC_SITE_URL: https://${DOMAIN}
       ADMIN_TOKEN: ${ADMIN_TOKEN:?ADMIN_TOKEN is required}
       NODE_ENV: production
       PORT: '3000'
+    networks:
+      - default
+      - traefik-public
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,6 +54,7 @@ services:
         condition: service_completed_successfully
     labels:
       - 'traefik.enable=true'
+      - 'traefik.docker.network=traefik-public'
       - 'traefik.http.routers.api.rule=Host(`${DOMAIN:?DOMAIN is required}`) && PathPrefix(`/api`)'
       - 'traefik.http.routers.api.entrypoints=websecure'
       - 'traefik.http.routers.api.tls.certresolver=letsencrypt'
@@ -71,10 +79,13 @@ services:
   web:
     image: ghcr.io/${GHCR_OWNER}/volleymonster-web:${TAG:-latest}
     restart: unless-stopped
+    networks:
+      - traefik-public
     depends_on:
       - api
     labels:
       - 'traefik.enable=true'
+      - 'traefik.docker.network=traefik-public'
       - 'traefik.http.routers.web.rule=Host(`${DOMAIN}`)'
       - 'traefik.http.routers.web.entrypoints=websecure'
       - 'traefik.http.routers.web.tls.certresolver=letsencrypt'
@@ -99,9 +110,13 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - letsencrypt:/letsencrypt
+    networks:
+      - default
+      - traefik-public
     command:
       - '--providers.docker=true'
       - '--providers.docker.exposedbydefault=false'
+      - '--providers.docker.network=traefik-public'
       - '--entrypoints.web.address=:80'
       - '--entrypoints.web.http.redirections.entrypoint.to=websecure'
       - '--entrypoints.web.http.redirections.entrypoint.scheme=https'
@@ -116,3 +131,14 @@ services:
 volumes:
   pgdata:
   letsencrypt:
+
+# `traefik-public` is the shared external network that lets traefik route to
+# the preview stack (which runs as a separate compose project). Postgres is
+# deliberately NOT on this network — only services that need a public route.
+#
+# One-time setup on the VPS, before `docker compose up`:
+#   docker network create traefik-public
+networks:
+  default:
+  traefik-public:
+    external: true
