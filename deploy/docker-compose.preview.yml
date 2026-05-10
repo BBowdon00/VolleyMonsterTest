@@ -60,7 +60,7 @@ services:
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?STRIPE_WEBHOOK_SECRET is required}
       RESEND_API_KEY: ${RESEND_API_KEY:?RESEND_API_KEY is required}
       EMAIL_FROM: ${EMAIL_FROM:?EMAIL_FROM is required}
-      PUBLIC_SITE_URL: https://${PREVIEW_DOMAIN:?PREVIEW_DOMAIN is required}
+      PUBLIC_SITE_URL: https://${DOMAIN:?DOMAIN is required}
       ADMIN_TOKEN: ${ADMIN_TOKEN:?ADMIN_TOKEN is required}
       NODE_ENV: production
       PORT: '3000'
@@ -75,12 +75,12 @@ services:
     labels:
       - 'traefik.enable=true'
       - 'traefik.docker.network=traefik-public'
-      - 'traefik.http.routers.preview-api.rule=Host(`${PREVIEW_DOMAIN}`) && PathPrefix(`/api`)'
+      - 'traefik.http.routers.preview-api.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)'
       - 'traefik.http.routers.preview-api.entrypoints=websecure'
       - 'traefik.http.routers.preview-api.tls.certresolver=letsencrypt'
       - 'traefik.http.routers.preview-api.middlewares=preview-security-headers'
       - 'traefik.http.routers.preview-api.service=preview-api-svc'
-      - 'traefik.http.routers.preview-checkout.rule=Host(`${PREVIEW_DOMAIN}`) && Path(`/api/create-checkout-session`)'
+      - 'traefik.http.routers.preview-checkout.rule=Host(`${DOMAIN}`) && Path(`/api/create-checkout-session`)'
       - 'traefik.http.routers.preview-checkout.entrypoints=websecure'
       - 'traefik.http.routers.preview-checkout.tls.certresolver=letsencrypt'
       - 'traefik.http.routers.preview-checkout.middlewares=preview-security-headers,preview-checkout-ratelimit'
@@ -106,7 +106,7 @@ services:
     labels:
       - 'traefik.enable=true'
       - 'traefik.docker.network=traefik-public'
-      - 'traefik.http.routers.preview-web.rule=Host(`${PREVIEW_DOMAIN}`)'
+      - 'traefik.http.routers.preview-web.rule=Host(`${DOMAIN}`)'
       - 'traefik.http.routers.preview-web.entrypoints=websecure'
       - 'traefik.http.routers.preview-web.tls.certresolver=letsencrypt'
       - 'traefik.http.routers.preview-web.middlewares=preview-security-headers'
@@ -119,7 +119,7 @@ volumes:
 # `traefik-public` is a shared network owned by the production compose project
 # (where traefik runs). Production traefik can only route to containers it
 # shares a network with — joining preview's api+web here is what makes
-# https://${PREVIEW_DOMAIN} actually reach this stack.
+# https://${DOMAIN} actually reach this stack.
 #
 # Postgres deliberately stays off this network: nothing on traefik-public
 # should be able to reach the database directly. Same for the seed service.

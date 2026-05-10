@@ -160,12 +160,12 @@ After that, deploys are independent — `docker compose -f docker-compose.yml up
 
 ### Env files on the VPS
 
-| File                              | Purpose                                                      |
-| --------------------------------- | ------------------------------------------------------------ |
-| `/opt/volleymonster/.env`         | Production. `DOMAIN=`, live Stripe keys, prod admin token    |
-| `/opt/volleymonster/.env.preview` | Preview. `PREVIEW_DOMAIN=`, test Stripe keys, separate token |
+| File                              | Purpose                                        |
+| --------------------------------- | ---------------------------------------------- |
+| `/opt/volleymonster/.env`         | Production. Live Stripe keys, prod admin token |
+| `/opt/volleymonster/.env.preview` | Preview. Test Stripe keys, separate token      |
 
-`.env.preview` required keys: `GHCR_OWNER`, `POSTGRES_PASSWORD`, `STRIPE_SECRET_KEY` (test), `STRIPE_WEBHOOK_SECRET` (from a Stripe webhook endpoint pointing at `https://${PREVIEW_DOMAIN}/api/stripe-webhook`), `RESEND_API_KEY`, `EMAIL_FROM`, `ADMIN_TOKEN`, `PREVIEW_DOMAIN`. Use a different `POSTGRES_PASSWORD` and `ADMIN_TOKEN` than production.
+`.env.preview` required keys: `GHCR_OWNER`, `POSTGRES_PASSWORD`, `STRIPE_SECRET_KEY` (test), `STRIPE_WEBHOOK_SECRET` (from a Stripe webhook endpoint pointing at `https://${DOMAIN}/api/stripe-webhook`), `RESEND_API_KEY`, `EMAIL_FROM`, `ADMIN_TOKEN`, `DOMAIN`. Use a different `POSTGRES_PASSWORD` and `ADMIN_TOKEN` than production.
 
 ### Seeding the preview database
 
