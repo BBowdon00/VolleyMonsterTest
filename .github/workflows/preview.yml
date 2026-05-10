@@ -62,7 +62,7 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/volleymonster-web:preview
           build-args: |
             TAG=preview
-            GHCR_OWNER=$(echo '${{ env.IMAGE_OWNER }}' | tr '[:upper:]' '[:lower:]')
+            GHCR_OWNER=${{ env.IMAGE_OWNER }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
